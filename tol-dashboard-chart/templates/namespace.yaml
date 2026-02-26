@@ -1,8 +1,0 @@
-{{- if .Values.namespaceCreate }}
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: {{ .Values.global.namespace }}
-  labels:
-    {{- include "taxonline-dashboard.labels" . | nindent 4 }}
-{{- end }}

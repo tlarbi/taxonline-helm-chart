@@ -100,3 +100,6 @@ podAnnotations: {}
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+autoscaling:
+  enabled: false

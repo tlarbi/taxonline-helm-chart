@@ -1,6 +1,0 @@
-apiVersion: v2
-name: tol-pipeline
-description: TaxOnline — Pipeline d'ingestion RAG (Bronze→Silver→Gold→Qdrant+OpenSearch)
-type: application
-version: 1.0.0
-appVersion: "1.0.0"
