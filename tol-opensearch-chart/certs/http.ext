@@ -1,0 +1,2 @@
+subjectAltName=DNS:opensearch-cluster-master,DNS:opensearch-cluster-master.opensearch,DNS:localhost
+extendedKeyUsage=serverAuth

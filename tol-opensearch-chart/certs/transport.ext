@@ -1,0 +1,2 @@
+subjectAltName=DNS:taxonline-opensearch-master-0,DNS:opensearch-cluster-master-headless,DNS:localhost
+extendedKeyUsage=serverAuth
