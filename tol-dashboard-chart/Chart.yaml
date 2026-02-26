@@ -1,0 +1,17 @@
+apiVersion: v2
+name: taxonline-dashboard
+description: Chart umbrella — Frontend + Backend TaxOnline
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+maintainers:
+  - name: TaxOnline Team
+dependencies:
+  - name: taxonline-frontend
+    version: "1.0.0"
+    repository: "file://../tol-frontend/chart"
+    condition: frontend.enabled
+  - name: tol-backend
+    version: "1.0.0"
+    repository: "file://../tol-backend/chart"
+    condition: backend.enabled

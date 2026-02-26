@@ -1,0 +1,41 @@
+replicaCount: 2
+
+image:
+  repository: harbor.taxonlineai.com/docker/dashboard-frontend
+  tag: "2.3.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: harbor-credentials
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 80
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+env:
+  VITE_API_URL: ""
+  VITE_WS_URL: ""
+
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

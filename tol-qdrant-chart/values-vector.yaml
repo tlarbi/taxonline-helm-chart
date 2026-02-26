@@ -1,0 +1,19 @@
+ngress:
+  enabled: true
+  ingressClassName: nginx   # adapte: nginx / traefik / openshift / alb...
+  annotations:
+    # Si tu utilises cert-manager + Let's Encrypt
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Optionnel: quelques réglages NGINX
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+  hosts:
+    - host: qdrant.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          servicePort: 6333
+  tls:
+    - hosts:
+        - qdrant.example.com
+      secretName: qdrant-tls
+

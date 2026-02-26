@@ -1,0 +1,87 @@
+global:
+  namespace: ollama
+  imagePullSecrets:
+    - name: registry-credentials
+
+frontend:
+  enabled: true
+
+backend:
+  enabled: true
+
+ingress:
+  enabled: true
+  className: nginx
+  host: dashboard.taxonline.dz
+  tls:
+    enabled: false
+    secretName: taxonline-dashboard-tls
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+
+namespaceCreate: false
+
+# ⚠ La clé doit correspondre exactement au name: dans Chart.yaml du sous-chart
+taxonline-frontend:
+  replicaCount: 2
+  image:
+    repository: registry.taxonline.dz/taxonline/dashboard-frontend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  imagePullSecrets:
+    - name: registry-credentials
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  autoscaling:
+    enabled: false
+
+tol-backend:
+  replicaCount: 2
+  image:
+    repository: registry.taxonline.dz/taxonline/dashboard-backend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  imagePullSecrets:
+    - name: registry-credentials
+  existingSecret: "dashboard-backend-secrets"
+  config:
+    APP_NAME: "TaxOnline Dashboard API"
+    DEBUG: "false"
+    ALLOWED_ORIGINS: '["https://dashboard.taxonline.dz"]'
+    QDRANT_HOST:       "qdrant-service"
+    QDRANT_PORT:       "6333"
+    QDRANT_COLLECTION: "tax_chunks"
+    OPENSEARCH_HOST:   "opensearch-service"
+    OPENSEARCH_PORT:   "9200"
+    OPENSEARCH_INDEX:  "tax_chunks"
+    OLLAMA_HOST:       "ollama-service"
+    OLLAMA_PORT:       "11434"
+    EMBED_MODEL:       "nomic-embed-text"
+    S3_ENDPOINT:       "http://minio:9000"
+    S3_BUCKET:         "taxonline-documents"
+    S3_REGION:         "us-east-1"
+    MIN_SCORE_THRESHOLD: "0.015"
+    MIN_SYNC_RATE:       "0.95"
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80

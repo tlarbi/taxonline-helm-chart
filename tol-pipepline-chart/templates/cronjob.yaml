@@ -1,0 +1,73 @@
+{{- if .Values.cronJob.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Values.cronJob.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: tol-pipeline
+    job: nightly
+spec:
+  schedule: {{ .Values.cronJob.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app: tol-pipeline
+            job: nightly
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: nightly-pipeline
+              image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: ["bash", "-c"]
+              args:
+                - |
+                  set -e
+                  echo "======================================"
+                  echo "  TaxOnline Nightly Pipeline"
+                  echo "  $(date)"
+                  echo "======================================"
+
+                  echo "=== [1/3] Incremental extract (nouveaux PDFs S3) ==="
+                  python3 pipeline/01_extract/extract_pdf.py \
+                    --bronze-path "${BRONZE_PATH}" \
+                    --silver-path "${SILVER_PATH}" \
+                    --s3-endpoint "${S3_ENDPOINT}" \
+                    --s3-bucket "${S3_BUCKET}" \
+                    --incremental
+
+                  echo "=== [2/3] Chunk + Index nouveaux docs ==="
+                  python3 pipeline/02_chunk/chunk_text.py \
+                    --pages-dir "${SILVER_PATH}/pages" \
+                    --out "${SILVER_PATH}/chunks.jsonl" \
+                    --chunk-chars "${CHUNK_CHARS}" \
+                    --overlap-chars "${OVERLAP_CHARS}" \
+                    --min-chars "${MIN_CHARS}" \
+                    --incremental
+
+                  python3 pipeline/03_index/index_qdrant.py
+                  python3 pipeline/03_index/index_opensearch.py
+
+                  echo "=== [3/3] Verify ==="
+                  python3 pipeline/03_index/verify_index.py \
+                    --chunks "${SILVER_PATH}/chunks.jsonl" \
+                    --report "${GOLD_PATH}/_reports/nightly_$(date +%Y%m%d).json"
+
+                  echo "=== NIGHTLY DONE — $(date) ==="
+              env:
+                {{- include "tol-pipeline.env" . | nindent 16 }}
+              resources:
+                {{- toYaml .Values.cronJob.resources | nindent 16 }}
+              volumeMounts:
+                {{- include "tol-pipeline.volumeMount" . | nindent 16 }}
+          volumes:
+            {{- include "tol-pipeline.volume" . | nindent 12 }}
+{{- end }}

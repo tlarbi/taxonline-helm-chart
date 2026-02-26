@@ -1,0 +1,9 @@
+✅ taxonline-frontend déployé.
+
+Service: {{ include "taxonline-frontend.fullname" . }}:{{ .Values.service.port }}
+
+Pour vérifier :
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "taxonline-frontend.name" . }}
+
+Ce chart doit être utilisé conjointement avec taxonline-backend.
+Le chart umbrella taxonline-dashboard déploie les deux en une commande.

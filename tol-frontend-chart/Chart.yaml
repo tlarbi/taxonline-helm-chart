@@ -1,0 +1,12 @@
+apiVersion: v2
+name: taxonline-frontend
+description: TaxOnline Dashboard — Frontend React/Nginx
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - taxonline
+  - dashboard
+  - frontend
+maintainers:
+  - name: TaxOnline Team

@@ -1,0 +1,41 @@
+replicaCount: 1
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: ollama/ollama
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 11434
+
+persistence:
+  enabled: true
+  storageClassName: ""   # mets ta storageClass si besoin
+  size: 50Gi
+  accessModes: ["ReadWriteOnce"]
+  mountPath: /root/.ollama
+
+resources:
+  requests:
+    cpu: "500m"
+    memory: "2Gi"
+  limits:
+    cpu: "2"
+    memory: "8Gi"
+
+# Si tu as un pool de nodes dédié
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Modèles à pré-télécharger au démarrage (optionnel)
+preloadModels:
+  enabled: true
+  models:
+    - nomic-embed-text
+    # - mistral
+

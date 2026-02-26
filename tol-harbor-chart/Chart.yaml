@@ -1,0 +1,11 @@
+apiVersion: v2
+name: tol-harbor
+description: TaxOnline Harbor Registry — umbrella chart wrapping goharbor/harbor
+version: 1.0.0
+appVersion: "2.11.0"
+type: application
+
+dependencies:
+  - name: harbor
+    version: "1.16.0"
+    repository: "https://helm.goharbor.io"

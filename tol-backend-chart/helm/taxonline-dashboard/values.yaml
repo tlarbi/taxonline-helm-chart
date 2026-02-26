@@ -1,0 +1,211 @@
+# =============================================================================
+# TaxOnline Dashboard - Helm Values
+# =============================================================================
+# Architecture: Frontend (React) + Backend (FastAPI) deployed independently
+# Existing infra: Qdrant, PostgreSQL, OpenSearch already running in cluster
+# =============================================================================
+
+global:
+  imageRegistry: ""        # e.g. harbor.internal.dz/taxonline
+  imagePullSecrets: []
+  namespace: taxonline-dashboard
+  environment: production  # production | staging | dev
+
+# =============================================================================
+# BACKEND - FastAPI
+# =============================================================================
+backend:
+  enabled: true
+  image:
+    repository: taxonline/dashboard-backend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 2
+
+  service:
+    type: ClusterIP
+    port: 8000
+    targetPort: 8000
+
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  # FastAPI config via env
+  config:
+    logLevel: "info"
+    workers: 2
+    corsOrigins: "*"          # Restrict in prod: "https://dashboard.taxonline.dz"
+    maxUploadSizeMb: 100
+    pipelineTimeoutSeconds: 300
+
+  # JWT Auth
+  auth:
+    jwtAlgorithm: "HS256"
+    accessTokenExpireMinutes: 60
+    refreshTokenExpireDays: 7
+    # secretKey: stored in secret (see secrets section)
+
+  # Existing services - just pass connection info
+  qdrant:
+    host: "qdrant.qdrant.svc.cluster.local"
+    port: 6333
+    collectionName: "taxonline_chunks"
+    grpcPort: 6334
+
+  postgresql:
+    host: "postgresql.postgresql.svc.cluster.local"
+    port: 5432
+    database: "taxonline_dashboard"
+    username: "taxonline"
+    # password: stored in secret
+
+  openSearch:
+    host: "opensearch.opensearch.svc.cluster.local"
+    port: 9200
+    indexName: "taxonline_docs"
+
+  ollama:
+    host: "ollama.ollama.svc.cluster.local"
+    port: 11434
+    embeddingModel: "nomic-embed-text"
+
+  # S3 / MinIO for document storage
+  s3:
+    endpoint: "http://minio.minio.svc.cluster.local:9000"
+    bucket: "taxonline-documents"
+    region: "us-east-1"
+    useSSL: false
+    # credentials: stored in secret
+
+  probes:
+    liveness:
+      path: /health
+      initialDelaySeconds: 15
+      periodSeconds: 20
+    readiness:
+      path: /health/ready
+      initialDelaySeconds: 10
+      periodSeconds: 10
+
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# =============================================================================
+# FRONTEND - React / Nginx
+# =============================================================================
+frontend:
+  enabled: true
+  image:
+    repository: taxonline/dashboard-frontend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 2
+
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "300m"
+      memory: "256Mi"
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+
+  # Runtime env vars injected at build or via nginx config
+  config:
+    apiUrl: "/api"           # Proxied via ingress - no CORS issues
+    wsUrl: "/ws"
+    appTitle: "TaxOnline Dashboard"
+    appVersion: "1.0.0"
+
+  probes:
+    liveness:
+      path: /
+      initialDelaySeconds: 5
+      periodSeconds: 15
+    readiness:
+      path: /
+      initialDelaySeconds: 3
+      periodSeconds: 10
+
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# =============================================================================
+# INGRESS - Decoupled routing, easy to swap for API Gateway
+# =============================================================================
+ingress:
+  enabled: true
+  className: "nginx"        # swap for traefik, kong, etc.
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "110m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    nginx.ingress.kubernetes.io/websocket-services: "taxonline-backend"
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  host: "dashboard.taxonline.dz"
+  tls:
+    enabled: false
+    secretName: "taxonline-dashboard-tls"
+  # Route rules:
+  # /api/*       -> backend service
+  # /ws/*        -> backend service (websocket)
+  # /*           -> frontend service
+
+# =============================================================================
+# SECRETS (override with real values or use external-secrets)
+# =============================================================================
+secrets:
+  create: true   # Set false if managing externally (Vault, SealedSecrets)
+  # If create: true, these values are used (base64 in actual secret)
+  jwtSecretKey: "CHANGE_ME_GENERATE_WITH_openssl_rand_hex_32"
+  postgresPassword: "CHANGE_ME"
+  s3AccessKey: "CHANGE_ME"
+  s3SecretKey: "CHANGE_ME"
+  # For Vault integration:
+  # vault:
+  #   enabled: true
+  #   role: taxonline-dashboard
+  #   path: secret/taxonline/dashboard
+
+# =============================================================================
+# SERVICE ACCOUNT
+# =============================================================================
+serviceAccount:
+  create: true
+  name: "taxonline-dashboard"
+  annotations: {}
+
+# =============================================================================
+# NETWORK POLICIES (optional hardening)
+# =============================================================================
+networkPolicy:
+  enabled: false   # Enable in prod
+  # Backend can reach: qdrant, postgresql, opensearch, ollama, s3
+  # Frontend can reach: backend only via ingress

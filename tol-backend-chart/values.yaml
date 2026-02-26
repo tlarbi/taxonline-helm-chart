@@ -1,0 +1,102 @@
+# ═══════════════════════════════════════════════════════════
+#  tol-backend — values.yaml
+# ═══════════════════════════════════════════════════════════
+
+replicaCount: 2
+
+image:
+  repository: harbor.taxonlineai.com/docker/tol-backend
+  tag: "1.2.2"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: harbor-credentials
+
+service:
+  type: ClusterIP
+  port: 8000
+
+# ─── Ingress (API route) ────────────────────────────────
+ingress:
+  enabled: true
+  host: rag.taxonlineai.com
+  tlsSecret: rag-taxonlineai-tls
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/backend-protocol: HTTP
+    nginx.ingress.kubernetes.io/rewrite-target: /api/$2
+    nginx.ingress.kubernetes.io/service-upstream: "true"
+
+# ─── Secret reference (existing K8s secret) ─────────────
+existingSecret: tol-backend-secrets
+
+# ─── Plain env vars ─────────────────────────────────────
+config:
+  DEBUG: "false"
+
+  # Qdrant
+  QDRANT_HOST: qdrant.vector.svc.cluster.local
+  QDRANT_PORT: "6333"
+
+  # OpenSearch
+  OPENSEARCH_HOST: opensearch-cluster-master.opensearch.svc.cluster.local
+  OPENSEARCH_PORT: "9200"
+  OPENSEARCH_USER: admin
+  OPENSEARCH_SSL: "true"
+
+  # Ollama
+  OLLAMA_HOST: ollama
+  OLLAMA_PORT: "11434"
+
+  # S3
+  S3_ENDPOINT: https://s3.gra.io.cloud.ovh.net
+  S3_BUCKET: taxonline-datalake
+  S3_REGION: gra
+
+  # LLM
+  LLM_PROVIDER: groq
+  LLM_BASE_URL: https://api.groq.com/openai/v1
+  LLM_MODEL: llama-3.3-70b-versatile
+
+  # Proxy (egress)
+  HTTP_PROXY: http://10.42.0.1:3128
+  HTTPS_PROXY: http://10.42.0.1:3128
+  NO_PROXY: "localhost,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,.svc,.cluster.local,qdrant-service,opensearch-cluster-master.opensearch.svc.cluster.local,ollama"
+
+# ─── Secrets (stored in Vault or K8s Secret) ────────────
+# These keys map to the K8s secret referenced above
+secretKeys:
+  DATABASE_URL: DATABASE_URL
+  SECRET_KEY: SECRET_KEY
+  REDIS_URL: REDIS_URL
+  S3_ACCESS_KEY: S3_ACCESS_KEY
+  S3_SECRET_KEY: S3_SECRET_KEY
+  OPENSEARCH_PASS: OPENSEARCH_PASS
+  LLM_API_KEY: LLM_API_KEY
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+livenessProbe:
+  httpGet:
+    path: /api/health
+    port: 8000
+  initialDelaySeconds: 15
+  periodSeconds: 30
+
+readinessProbe:
+  httpGet:
+    path: /api/health
+    port: 8000
+  initialDelaySeconds: 10
+  periodSeconds: 10
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

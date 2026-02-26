@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ollama.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "ollama.name" . }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "ollama.name" . }}
+    spec:
+      containers:
+        - name: ollama
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 11434
+          env:
+            # Optionnel : changer l'emplacement des models si tu veux
+            - name: OLLAMA_MODELS
+              value: {{ .Values.persistence.mountPath | quote }}
+          volumeMounts:
+            - name: models
+              mountPath: {{ .Values.persistence.mountPath }}
+          resources: {{ toYaml .Values.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 30
+            periodSeconds: 20
+
+      {{- if .Values.preloadModels.enabled }}
+      initContainers:
+        - name: preload-models
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          command: ["/bin/sh","-lc"]
+          args:
+            - >
+              ollama serve & sleep 3;
+              {{- range .Values.preloadModels.models }}
+              ollama pull {{ . }} ;
+              {{- end }}
+              echo "done";
+          volumeMounts:
+            - name: models
+              mountPath: {{ .Values.persistence.mountPath }}
+      {{- end }}
+
+      volumes:
+        - name: models
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "ollama.fullname" . }}-models
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+

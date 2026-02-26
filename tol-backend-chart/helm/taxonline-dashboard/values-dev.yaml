@@ -1,0 +1,26 @@
+# Dev overrides — helm install ... -f values.yaml -f values-dev.yaml
+
+global:
+  imageRegistry: ""   # Use local images
+
+frontend:
+  replicaCount: 1
+  image:
+    tag: "dev"
+    pullPolicy: Always
+
+backend:
+  replicaCount: 1
+  image:
+    tag: "dev"
+    pullPolicy: Always
+  autoscaling:
+    enabled: false
+  config:
+    DEBUG: "true"
+    ALLOWED_ORIGINS: '["http://localhost:5173","http://localhost:3000"]'
+
+ingress:
+  host: "dashboard.taxonline.local"
+  tls:
+    enabled: false

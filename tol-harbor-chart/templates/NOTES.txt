@@ -1,0 +1,36 @@
+═══════════════════════════════════════
+  Harbor Registry deployed!
+═══════════════════════════════════════
+
+  URL:       https://{{ .Values.harbor.expose.ingress.hosts.core }}
+  Admin:     admin
+  Password:  (set in values.yaml)
+
+── Docker usage ──
+
+  docker login {{ .Values.harbor.expose.ingress.hosts.core }} -u admin
+  docker tag myimage:latest {{ .Values.harbor.expose.ingress.hosts.core }}/library/myimage:latest
+  docker push {{ .Values.harbor.expose.ingress.hosts.core }}/library/myimage:latest
+
+── Helm chart push ──
+
+  helm registry login {{ .Values.harbor.expose.ingress.hosts.core }} -u admin
+  helm push mychart-0.1.0.tgz oci://{{ .Values.harbor.expose.ingress.hosts.core }}/library
+
+── K3s containerd usage (no docker login needed) ──
+
+  Add to /etc/rancher/k3s/registries.yaml:
+
+  mirrors:
+    {{ .Values.harbor.expose.ingress.hosts.core }}:
+      endpoint:
+        - "https://{{ .Values.harbor.expose.ingress.hosts.core }}"
+  configs:
+    "{{ .Values.harbor.expose.ingress.hosts.core }}":
+      auth:
+        username: admin
+        password: <your-password>
+
+  Then: sudo systemctl restart k3s
+
+═══════════════════════════════════════

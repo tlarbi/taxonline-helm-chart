@@ -1,0 +1,9 @@
+dependencies:
+- name: taxonline-frontend
+  repository: file://../tol-frontend/chart
+  version: 1.0.0
+- name: tol-backend
+  repository: file://../tol-backend/chart
+  version: 1.0.0
+digest: sha256:9f392ed6b754b02c25b4d6c47233af6c678241715695c0da4dcafc10856341aa
+generated: "2026-02-18T21:24:43.831009879Z"

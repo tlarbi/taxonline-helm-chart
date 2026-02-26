@@ -1,0 +1,107 @@
+# ═══════════════════════════════════════════════════════════
+#  tol-harbor — values.yaml
+#  All keys under "harbor:" are passed to the subchart
+# ═══════════════════════════════════════════════════════════
+
+harbor:
+
+  # ─── Ingress / TLS ─────────────────────────────────────
+  expose:
+    type: ingress
+    tls:
+      enabled: true
+      certSource: secret
+      secret:
+        secretName: harbor-tls
+    ingress:
+      hosts:
+        core: harbor.taxonlineai.com
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/proxy-body-size: "0"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "900"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "900"
+
+  externalURL: https://harbor.taxonlineai.com
+
+  # ─── Admin ─────────────────────────────────────────────
+  harborAdminPassword: "Taxonline2026!"
+
+  # ─── Storage (local PVC) ───────────────────────────────
+  persistence:
+    enabled: true
+    persistentVolumeClaim:
+      registry:
+        size: 50Gi
+        accessMode: ReadWriteOnce
+      jobservice:
+        jobLog:
+          size: 1Gi
+      database:
+        size: 5Gi
+      redis:
+        size: 1Gi
+      trivy:
+        size: 5Gi
+
+  # ─── Internal Postgres ─────────────────────────────────
+  database:
+    type: internal
+
+  # ─── Internal Redis ────────────────────────────────────
+  redis:
+    type: internal
+
+  # ─── Trivy scanner ─────────────────────────────────────
+  trivy:
+    enabled: true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # ─── Replicas (single node) ────────────────────────────
+  core:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  jobservice:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  registry:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  portal:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi

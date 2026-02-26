@@ -1,0 +1,49 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "taxonline-dashboard.name" . }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "taxonline-dashboard.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          # /api → backend FastAPI
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "taxonline-dashboard.backendService" . }}
+                port:
+                  number: 8000
+          # /ws → backend WebSocket
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "taxonline-dashboard.backendService" . }}
+                port:
+                  number: 8000
+          # / → frontend SPA (catch-all en dernier)
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "taxonline-dashboard.frontendService" . }}
+                port:
+                  number: 80
+{{- end }}
