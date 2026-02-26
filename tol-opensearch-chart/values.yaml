@@ -1,0 +1,123 @@
+# =========================================================
+# Umbrella chart values
+# =========================================================
+
+# On ne met PAS de mot de passe en clair dans values.yaml
+# (on le stocke dans un Secret Kubernetes: opensearch-admin)
+createAdminSecret: false
+adminPassword: ""
+
+# =========================================================
+# OpenSearch (subchart opensearch)
+# =========================================================
+opensearch:
+  clusterName: "taxonline-opensearch"
+  nodeGroup: "master"
+  replicas: 1
+
+  # -------------------------------
+  # IMPORTANT: injecte le password admin requis par OpenSearch Security (2.12+)
+  # -------------------------------
+  extraEnvs:
+    - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: opensearch-admin
+          key: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+
+  # ===============================
+  # Storage
+  # ===============================
+  persistence:
+    enabled: true
+    size: 50Gi
+    # storageClass: "local-path"   # Décommente si nécessaire
+
+  # ===============================
+  # Ressources
+  # ===============================
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "2Gi"
+    limits:
+      cpu: "2"
+      memory: "2Gi"
+
+  # JVM heap ~50% RAM
+  opensearchJavaOpts: "-Xms1g -Xmx1g"
+
+  # ===============================
+  # OpenSearch config
+  # ===============================
+  config:
+    opensearch.yml: |
+      cluster.name: taxonline-opensearch
+      network.host: 0.0.0.0
+
+      # NOTE:
+      # Security est activé via le chart (securityConfig.enabled=true dans computed values).
+      # Ne PAS mettre plugins.security.disabled: true ici si tu veux rester en HTTPS + auth.
+
+  # ===============================
+  # Contexte sécurité fichiers/PV
+  # ===============================
+  securityContext:
+    fsGroup: 1000
+    runAsUser: 1000
+
+  # ===============================
+  # Certs montés (ton secret existe déjà)
+  # ===============================
+  extraVolumes:
+    - name: opensearch-certs
+      secret:
+        secretName: opensearch-certs
+
+  extraVolumeMounts:
+    - name: opensearch-certs
+      mountPath: /usr/share/opensearch/config/certs
+      readOnly: true
+
+  # ===============================
+  # Service
+  # ===============================
+  service:
+    type: ClusterIP
+    port: 9200
+
+# =========================================================
+# OpenSearch Dashboards (subchart opensearch-dashboards)
+# =========================================================
+opensearch-dashboards:
+  replicaCount: 1
+
+  # On reste en HTTPS puisque OpenSearch est en protocol https dans tes computed values
+  opensearchHosts: "https://opensearch-cluster-master:9200"
+
+  extraEnvs:
+    - name: OPENSEARCH_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: opensearch-admin
+          key: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+
+  config:
+    opensearch_dashboards.yml: |
+      server.host: 0.0.0.0
+      opensearch.hosts: ["https://opensearch-cluster-master:9200"]
+      opensearch.username: "admin"
+      opensearch.password: "${OPENSEARCH_PASSWORD}"
+      opensearch.ssl.verificationMode: none
+
+# =========================================================
+# Dashboards Ingress (umbrella template ingress-dashboards.yaml)
+# =========================================================
+dashboardsIngress:
+  enabled: true
+  host: "osdash.taxonlineai.com"
+  tlsEnabled: true
+  tlsSecretName: "osdash-tls"
+  serviceName: "opensearch-opensearch-dashboards"
+  servicePort: 5601
+

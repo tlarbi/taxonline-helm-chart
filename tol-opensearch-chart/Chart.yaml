@@ -1,0 +1,14 @@
+apiVersion: v2
+name: opensearch-umbrella
+description: Umbrella chart TaxOnline - OpenSearch + Dashboards
+type: application
+version: 0.1.0
+
+dependencies:
+  - name: opensearch
+    version: "2.*"
+    repository: "https://opensearch-project.github.io/helm-charts/"
+  - name: opensearch-dashboards
+    version: "2.*"
+    repository: "https://opensearch-project.github.io/helm-charts/"
+
