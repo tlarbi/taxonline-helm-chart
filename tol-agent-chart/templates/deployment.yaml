@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tol-agent.fullname" . }}
+  labels:
+    {{- include "tol-agent.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "tol-agent.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tol-agent.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: agent
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8001
+              name: http
+          env:
+            {{- range $key, $val := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $val | quote }}
+            {{- end }}
+            - name: http_proxy
+              value: "http://10.42.0.1:3128"
+            - name: https_proxy
+              value: "http://10.42.0.1:3128"
+            - name: HTTP_PROXY
+              value: "http://10.42.0.1:3128"
+            - name: HTTPS_PROXY
+              value: "http://10.42.0.1:3128"
+            - name: no_proxy
+              value: "localhost,127.0.0.1,10.42.0.0/16,10.43.0.0/16,.svc,.svc.cluster.local"
+            - name: NO_PROXY
+              value: "localhost,127.0.0.1,10.42.0.0/16,10.43.0.0/16,.svc,.svc.cluster.local"
+          envFrom:
+            - secretRef:
+                name: {{ .Values.externalSecret.targetName }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+

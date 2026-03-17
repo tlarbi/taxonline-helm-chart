@@ -1,0 +1,48 @@
+# ── APISIX Standalone Routes — TaxOnline AI ──
+# Ce fichier est monté en ConfigMap et lu par APISIX en mode standalone.
+
+routes:
+  # ── Public (pas d'auth) ──
+  - id: 1
+    name: tol-agent-health
+    uri: /health
+    host: api.taxonlineai.com
+    upstream_id: 1
+
+  - id: 2
+    name: tol-agent-ready
+    uri: /ready
+    host: api.taxonlineai.com
+    upstream_id: 1
+
+  # ── Protégé (jwt-auth + rate limit) ──
+  - id: 3
+    name: tol-agent-api
+    desc: "RAG API v2 — JWT auth + rate limiting"
+    uri: /api/v2/*
+    host: api.taxonlineai.com
+    upstream_id: 1
+    plugins:
+      jwt-auth: {}
+      limit-count:
+        count: 100
+        time_window: 3600
+        key_type: var
+        key: remote_addr
+        rejected_code: 429
+        rejected_msg: '{"error":"rate limit exceeded"}'
+      prometheus:
+        prefer_name: true
+
+upstreams:
+  - id: 1
+    name: tol-agent
+    type: roundrobin
+    nodes:
+      "tol-agent.agent.svc.cluster.local:8001": 1
+    timeout:
+      connect: 5
+      send: 30
+      read: 60
+
+#END

@@ -1,0 +1,7 @@
+apiVersion: v2
+name: tol-auth
+description: TaxOnline AI — JWT Authentication Service (NGINX External Auth)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+

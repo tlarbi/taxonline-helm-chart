@@ -1,0 +1,31 @@
+{{- if .Values.ingressRag.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "tol-agent.fullname" . }}-rag
+  labels:
+    {{- include "tol-agent.labels" . | nindent 4 }}
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/service-upstream: "true"
+    {{- if .Values.ingress.auth.enabled }}
+    nginx.ingress.kubernetes.io/auth-url: {{ .Values.ingress.auth.url | quote }}
+    nginx.ingress.kubernetes.io/auth-response-headers: {{ .Values.ingress.auth.responseHeaders | quote }}
+    {{- end }}
+spec:
+  tls:
+  - hosts:
+    - {{ .Values.ingressRag.host }}
+    secretName: {{ .Values.ingressRag.tlsSecret }}
+  rules:
+  - host: {{ .Values.ingressRag.host }}
+    http:
+      paths:
+      - path: {{ .Values.ingressRag.path }}
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "tol-agent.fullname" . }}
+            port:
+              number: {{ .Values.service.port }}
+{{- end }}

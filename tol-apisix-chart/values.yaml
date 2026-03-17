@@ -1,0 +1,142 @@
+# ── APISIX Gateway — TaxOnline AI Phase B (Standalone) ──
+
+replicaCount: 1
+
+service:
+  type: NodePort
+  http:
+    enabled: true
+    servicePort: 80
+    containerPort: 9080
+  tls:
+    enabled: true
+    servicePort: 443
+    containerPort: 9443
+  extraPorts:
+    - name: prometheus
+      port: 9091
+      targetPort: 9091
+      protocol: TCP
+
+apisix:
+  deployment:
+    mode: standalone
+    role: data_plane
+    role_traditional:
+      config_provider: yaml
+    standalone:
+      config: |
+        routes:
+          # ── api.taxonlineai.com ──
+          - id: 1
+            name: api-health
+            uri: /health
+            host: api.taxonlineai.com
+            upstream_id: 1
+
+          - id: 2
+            name: api-ready
+            uri: /ready
+            host: api.taxonlineai.com
+            upstream_id: 1
+
+          - id: 3
+            name: api-v2
+            desc: "api.taxonlineai.com — RAG API v2"
+            uri: /api/v2/*
+            host: api.taxonlineai.com
+            upstream_id: 1
+            plugins:
+              forward-auth:
+                uri: "http://tol-auth.auth.svc.cluster.local:8002/auth/verify"
+                request_headers:
+                  - "Authorization"
+                upstream_headers:
+                  - "X-User-ID"
+                  - "X-User-Role"
+                  - "X-User-Plan"
+              limit-count:
+                count: 100
+                time_window: 3600
+                key_type: var
+                key: remote_addr
+                rejected_code: 429
+                rejected_msg: '{"error":"rate limit exceeded"}'
+              prometheus:
+                prefer_name: true
+
+          # ── rag.taxonlineai.com/api/v2/* ──
+          - id: 10
+            name: rag-v2
+            desc: "rag.taxonlineai.com — RAG API v2 (coexistence)"
+            uri: /api/v2/*
+            host: rag.taxonlineai.com
+            upstream_id: 1
+            plugins:
+              forward-auth:
+                uri: "http://tol-auth.auth.svc.cluster.local:8002/auth/verify"
+                request_headers:
+                  - "Authorization"
+                upstream_headers:
+                  - "X-User-ID"
+                  - "X-User-Role"
+                  - "X-User-Plan"
+              limit-count:
+                count: 100
+                time_window: 3600
+                key_type: var
+                key: remote_addr
+                rejected_code: 429
+                rejected_msg: '{"error":"rate limit exceeded"}'
+              prometheus:
+                prefer_name: true
+
+        upstreams:
+          - id: 1
+            name: tol-agent
+            type: roundrobin
+            nodes:
+              "tol-agent.agent.svc.cluster.local:8001": 1
+            timeout:
+              connect: 5
+              send: 30
+              read: 60
+        #END
+
+  pluginAttr:
+    prometheus:
+      export_uri: /apisix/prometheus/metrics
+      export_addr:
+        ip: "0.0.0.0"
+        port: 9091
+
+admin:
+  enabled: false
+
+etcd:
+  enabled: false
+
+customPlugins:
+  enabled: false
+  luaPath: "/opt/apisix/?.lua"
+  plugins: []
+
+plugins:
+  - forward-auth
+  - limit-count
+  - limit-req
+  - prometheus
+  - file-logger
+  - proxy-rewrite
+  - response-rewrite
+  - cors
+  - ip-restriction
+  - real-ip
+
+ingress:
+  enabled: false
+
+serviceMonitor:
+  enabled: true
+  namespace: monitoring
+  interval: 10s

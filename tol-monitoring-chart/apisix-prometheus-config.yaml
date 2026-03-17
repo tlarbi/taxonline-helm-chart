@@ -1,0 +1,110 @@
+# =============================================================================
+# Apache APISIX - Prometheus Plugin Configuration
+# Add to your existing APISIX config.yaml or Helm values
+# =============================================================================
+
+# ---- In config.yaml (standalone) ----
+# plugin_attr:
+#   prometheus:
+#     export_uri: /apisix/prometheus/metrics
+#     export_addr:
+#       ip: 0.0.0.0
+#       port: 9091
+#     # Per-route metrics
+#     metrics:
+#       http_status:
+#         extra_labels:
+#           - upstream_addr: $upstream_addr
+#       http_latency:
+#         extra_labels: []
+#       bandwidth:
+#         extra_labels: []
+
+# ---- In APISIX Helm values (apisix-values.yaml) ----
+apisix:
+  # Enable prometheus plugin globally
+  plugins:
+    - prometheus
+    - limit-req
+    - limit-count
+    - limit-conn
+    - key-auth
+    - jwt-auth
+    - cors
+    - proxy-rewrite
+    - response-rewrite
+    - redirect
+
+  pluginAttrs:
+    prometheus:
+      export_uri: /apisix/prometheus/metrics
+      export_addr:
+        ip: "0.0.0.0"
+        port: 9091
+
+  # Enable data plane metrics
+  dataPlane:
+    metrics:
+      enabled: true
+
+# Expose metrics port
+service:
+  type: ClusterIP
+  metricsPort: 9091
+
+# ServiceMonitor for auto-discovery by Prometheus Operator
+serviceMonitor:
+  enabled: true
+  namespace: monitoring
+  interval: 10s
+  path: /apisix/prometheus/metrics
+  port: 9091
+  labels:
+    release: tol-monitoring
+
+# ---- Route-level plugin configuration ----
+# Apply prometheus plugin to routes for per-route metrics
+
+# Example: tol-agent query route
+# PUT /apisix/admin/routes/tol-agent-query
+---
+# apiVersion: apisix.apache.org/v2
+# kind: ApisixRoute
+# metadata:
+#   name: tol-agent-query
+#   namespace: taxonline
+# spec:
+#   http:
+#     - name: query
+#       match:
+#         hosts:
+#           - api.taxonline.ai
+#         paths:
+#           - /api/v1/query
+#       backends:
+#         - serviceName: tol-agent
+#           servicePort: 8000
+#       plugins:
+#         - name: prometheus
+#           enable: true
+#         - name: limit-count
+#           enable: true
+#           config:
+#             count: 100        # per-plan override via consumer
+#             time_window: 3600
+#             rejected_code: 429
+#             policy: redis
+#             redis_host: redis
+#             redis_port: 6379
+#         - name: jwt-auth
+#           enable: true
+
+# ---- Example: Global rule for prometheus on all routes ----
+# PUT /apisix/admin/global_rules/1
+# {
+#   "plugins": {
+#     "prometheus": {
+#       "prefer_name": true
+#     }
+#   }
+# }

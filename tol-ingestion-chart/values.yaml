@@ -1,0 +1,196 @@
+# ──────────────────────────────────────────────
+# tol-ingestion — Helm Values
+# ──────────────────────────────────────────────
+
+replicaCount: 1
+
+image:
+  repository: harbor.taxonlineai.com/taxonline/tol-ingestion
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+#  - name: harbor-credentials
+
+nameOverride: ""
+fullnameOverride: ""
+
+# ── Service ──────────────────────────────────
+service:
+  type: ClusterIP
+  port: 8003
+
+# ── Ingress ──────────────────────────────────
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: ingestion.taxonlineai.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: taxonline-tls
+      hosts:
+        - ingestion.taxonlineai.com
+
+# ── External Secrets (HashiCorp Vault) ───────
+externalSecret:
+  enabled: false
+  secretStoreName: vault-backend
+  secretStoreKind: ClusterSecretStore
+  refreshInterval: 1h
+  target:
+    name: tol-ingestion-secrets
+  data:
+    - secretKey: SECRET_KEY
+      remoteRef:
+        key: taxonline/tol-ingestion
+        property: SECRET_KEY
+    - secretKey: S3_ACCESS_KEY
+      remoteRef:
+        key: taxonline/tol-ingestion
+        property: S3_ACCESS_KEY
+    - secretKey: S3_SECRET_KEY
+      remoteRef:
+        key: taxonline/tol-ingestion
+        property: S3_SECRET_KEY
+    - secretKey: OPENSEARCH_PASS
+      remoteRef:
+        key: taxonline/tol-ingestion
+        property: OPENSEARCH_PASS
+
+# ── Fallback Secret (si externalSecret.enabled=false)
+secret:
+  enabled: true
+  name: tol-ingestion-secrets
+  data:
+    SECRET_KEY: ""
+    S3_ACCESS_KEY: ""
+    S3_SECRET_KEY: ""
+    OPENSEARCH_PASS: ""
+
+# ── Application Config (non-sensitive) ───────
+config:
+  DEBUG: "false"
+
+  # S3 / OVH Object Storage
+  S3_ENDPOINT: "https://s3.gra.io.cloud.ovh.net"
+  S3_BUCKET: "taxonline-raw"
+  S3_REGION: "gra"
+
+  # Qdrant
+  QDRANT_HOST: "qdrant.vector.svc.cluster.local"
+  QDRANT_PORT: "6333"
+  QDRANT_COLLECTION: "taxonline_chunks_v1"
+
+  # OpenSearch
+  OPENSEARCH_HOST: "opensearch-cluster-master.opensearch.svc.cluster.local"
+  OPENSEARCH_PORT: "9200"
+  OPENSEARCH_USER: "admin"
+  OPENSEARCH_SSL: "true"
+  OPENSEARCH_INDEX: "taxonline"
+  OPENSEARCH_ENABLED: "true"
+
+  # Embedding (Ollama)
+  OLLAMA_HOST: "ollama.ollama.svc.cluster.local"
+  OLLAMA_PORT: "11434"
+  EMBED_MODEL: "nomic-embed-text"
+
+# ── Resources ────────────────────────────────
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# ── Probes ───────────────────────────────────
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# ── Pod Disruption Budget ────────────────────
+pdb:
+  enabled: false
+  minAvailable: 1
+
+# ── Network Policy ───────────────────────────
+networkPolicy:
+  enabled: false
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: apisix
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ollama
+      ports:
+        - port: 8003
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: vector
+      ports:
+        - port: 6333
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: opensearch
+      ports:
+        - port: 9200
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ollama
+      ports:
+        - port: 11434
+    # DNS
+    - to: []
+      ports:
+        - port: 53
+          protocol: UDP
+    # S3 OVH (HTTPS)
+    - to: []
+      ports:
+        - port: 443
+
+# ── ServiceMonitor (Prometheus) ──────────────
+serviceMonitor:
+  enabled: false
+  namespace: monitoring
+  interval: 15s
+  path: /metrics
+  labels:
+    release: tol-monitoring
+
+# ── Autoscaling ──────────────────────────────
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+
+# ── Pod config ───────────────────────────────
+nodeSelector: {}
+tolerations: []
+affinity: {}
+

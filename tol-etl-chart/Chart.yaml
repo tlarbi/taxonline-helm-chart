@@ -1,0 +1,14 @@
+apiVersion: v2
+name: tol-legal-etl
+description: TaxOnline AI — Legal Database ETL Microservice
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - taxonline
+  - etl
+  - legal
+  - fiscal
+maintainers:
+  - name: TaxOnline AI
+

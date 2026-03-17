@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-falkordb
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: falkordb
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  serviceName: {{ .Release.Name }}-falkordb
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: falkordb
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: falkordb
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+      - name: falkordb
+        image: "{{ .Values.falkordb.image.repository }}:{{ .Values.falkordb.image.tag }}"
+        imagePullPolicy: {{ .Values.falkordb.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.falkordb.port }}
+          name: redis
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.falkordb.port }}
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command: ["redis-cli", "ping"]
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          {{- toYaml .Values.falkordb.resources | nindent 10 }}
+        volumeMounts:
+        - name: data
+          mountPath: /data
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: {{ .Values.falkordb.persistence.size }}

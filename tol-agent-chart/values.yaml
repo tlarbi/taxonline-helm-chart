@@ -1,0 +1,137 @@
+replicaCount: 2
+
+image:
+  repository: harbor.taxonlineai.com/taxonline/tol-agent
+  tag: "1.0.0"
+  pullPolicy: Always
+
+imagePullSecrets:
+  - name: harbor-credentials
+
+service:
+  type: ClusterIP
+  port: 8001
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 768Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+# ── Application Config (non-secret) ──
+env:
+  # Qdrant
+  QDRANT_HOST: "qdrant.vector.svc.cluster.local"
+  QDRANT_PORT: "6333"
+  QDRANT_COLLECTION: "taxonline_chunks_v1"
+  # OpenSearch
+  OPENSEARCH_HOST: "opensearch-cluster-master.opensearch.svc.cluster.local"
+  OPENSEARCH_PORT: "9200"
+  OPENSEARCH_INDEX: "taxonline_chunks"
+  OPENSEARCH_USER: "admin"
+  # Ollama
+  OLLAMA_HOST: "ollama.ollama.svc.cluster.local"
+  OLLAMA_PORT: "11434"
+  EMBED_MODEL: "nomic-embed-text"
+  # LLM Tiering
+  LLM_PROVIDER: "groq"
+  LLM_ROUTING_MODEL: "llama-3.1-8b-instant"
+  LLM_GENERATION_MODEL: "llama-3.3-70b-versatile"
+  LLM_FALLBACK_MODEL: "mistral"
+  # Redis
+  REDIS_HOST: "redis.agent.svc.cluster.local"
+  REDIS_PORT: "6379"
+  # App
+  LOG_LEVEL: "info"
+  ENVIRONMENT: "production"
+
+# ── External Secrets (ESO → Vault) ──
+externalSecret:
+  enabled: true
+  refreshInterval: 5m
+  secretStoreName: vault-backend
+  secretStoreKind: ClusterSecretStore
+  targetName: tol-agent-secrets
+  data:
+    - secretKey: SECRET_KEY
+      remoteRef:
+        key: taxonline/dev/agent
+        property: SECRET_KEY
+    - secretKey: DATABASE_URL
+      remoteRef:
+        key: taxonline/dev/agent
+        property: DATABASE_URL
+    - secretKey: OPENSEARCH_PASS
+      remoteRef:
+        key: taxonline/dev/agent
+        property: OPENSEARCH_PASS
+    - secretKey: LLM_API_KEY
+      remoteRef:
+        key: taxonline/dev/agent
+        property: LLM_API_KEY
+    - secretKey: LANGCHAIN_API_KEY
+      remoteRef:
+        key: taxonline/dev/agent
+        property: LANGCHAIN_API_KEY
+    - secretKey: LANGCHAIN_TRACING_V2
+      remoteRef:
+        key: taxonline/dev/agent
+        property: LANGCHAIN_TRACING_V2
+    - secretKey: LANGCHAIN_PROJECT
+      remoteRef:
+        key: taxonline/dev/agent
+        property: LANGCHAIN_PROJECT
+    - secretKey: LANGCHAIN_ENDPOINT
+      remoteRef:
+        key: taxonline/dev/agent
+        property: LANGCHAIN_ENDPOINT
+    - secretKey: REDIS_URL
+      remoteRef:
+        key: taxonline/dev/agent
+        property: REDIS_URL
+
+# ── Network Policy ──
+networkPolicy:
+  enabled: false
+  allowedNamespaces:
+    - vector       # Qdrant
+    - opensearch   # OpenSearch
+    - ollama       # Ollama + Redis
+    - database     # PostgreSQL
+    - auth         # tol-auth (for internal calls if needed)
+
+
+# ── Proxy ──
+proxy:
+  http_proxy: "http://10.42.0.1:3128"
+  https_proxy: "http://10.42.0.1:3128"
+  no_proxy: "localhost,127.0.0.1,10.42.0.0/16,10.43.0.0/16,.svc,.svc.cluster.local"
+
+# ── Ingress ──
+ingress:
+  enabled: false
+  host: api.taxonlineai.com
+  tlsSecret: api-taxonlineai-tls
+  auth:
+    enabled: true
+    url: "http://tol-auth.auth.svc.cluster.local:8002/auth/verify"
+    responseHeaders: "X-User-ID,X-User-Role,X-User-Plan"
+
+# ── Ingress ──
+ingress:
+  enabled: false
+  host: api.taxonlineai.com
+  tlsSecret: api-taxonlineai-tls
+  auth:
+    enabled: true
+    url: "http://tol-auth.auth.svc.cluster.local:8002/auth/verify"
+    responseHeaders: "X-User-ID,X-User-Role,X-User-Plan"
+
+# ── Ingress RAG (coexistence v1/v2 sur rag.taxonlineai.com) ──
+ingressRag:
+  enabled: false
+  host: rag.taxonlineai.com
+  path: /api/v2
+  tlsSecret: rag-taxonlineai-tls
