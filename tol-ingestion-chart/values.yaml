@@ -46,19 +46,19 @@ externalSecret:
   data:
     - secretKey: SECRET_KEY
       remoteRef:
-        key: taxonline/tol-ingestion
+        key: taxonline/dev/ingestion
         property: SECRET_KEY
     - secretKey: S3_ACCESS_KEY
       remoteRef:
-        key: taxonline/tol-ingestion
+        key: taxonline/dev/ingestion
         property: S3_ACCESS_KEY
     - secretKey: S3_SECRET_KEY
       remoteRef:
-        key: taxonline/tol-ingestion
+        key: taxonline/dev/ingestion
         property: S3_SECRET_KEY
     - secretKey: OPENSEARCH_PASS
       remoteRef:
-        key: taxonline/tol-ingestion
+        key: taxonline/dev/ingestion
         property: OPENSEARCH_PASS
 
 # ── Fallback Secret (si externalSecret.enabled=false)
@@ -77,13 +77,14 @@ config:
 
   # S3 / OVH Object Storage
   S3_ENDPOINT: "https://s3.gra.io.cloud.ovh.net"
-  S3_BUCKET: "taxonline-raw"
+  S3_BUCKET: "taxonline-datalake"
   S3_REGION: "gra"
 
   # Qdrant
   QDRANT_HOST: "qdrant.vector.svc.cluster.local"
   QDRANT_PORT: "6333"
-  QDRANT_COLLECTION: "taxonline_chunks_v1"
+  QDRANT_COLLECTION: "tol-docs-v3"
+  TOL_EMBED_URL: "http://tol-embed.embedding.svc.cluster.local:8000"
 
   # OpenSearch
   OPENSEARCH_HOST: "opensearch-cluster-master.opensearch.svc.cluster.local"
@@ -96,35 +97,36 @@ config:
   # Embedding (Ollama)
   OLLAMA_HOST: "ollama.ollama.svc.cluster.local"
   OLLAMA_PORT: "11434"
-  EMBED_MODEL: "nomic-embed-text"
+  EMBED_MODEL: "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+  EMBED_DIM: "768"
 
 # ── Resources ────────────────────────────────
 resources:
   requests:
     cpu: 100m
-    memory: 256Mi
-  limits:
-    cpu: 500m
     memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1024Mi
 
 # ── Probes ───────────────────────────────────
 livenessProbe:
   httpGet:
     path: /health
     port: http
-  initialDelaySeconds: 10
-  periodSeconds: 30
-  timeoutSeconds: 5
-  failureThreshold: 3
+  initialDelaySeconds: 30
+  periodSeconds: 60
+  timeoutSeconds: 10
+  failureThreshold: 5
 
 readinessProbe:
   httpGet:
     path: /ready
     port: http
-  initialDelaySeconds: 5
-  periodSeconds: 10
-  timeoutSeconds: 3
-  failureThreshold: 3
+  initialDelaySeconds: 10
+  periodSeconds: 15
+  timeoutSeconds: 10
+  failureThreshold: 5
 
 # ── Pod Disruption Budget ────────────────────
 pdb:

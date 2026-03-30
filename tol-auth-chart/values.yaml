@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: harbor.taxonlineai.com/taxonline/tol-auth
-  tag: "2.0.0"
+  tag: "2.12.0"
   pullPolicy: Always
 
 imagePullSecrets:
@@ -40,6 +40,34 @@ externalSecret:
       remoteRef:
         key: taxonline/dev/auth
         property: DATABASE_URL
+    - secretKey: AUTHENTIK_API_TOKEN
+      remoteRef:
+        key: taxonline/dev/auth
+        property: AUTHENTIK_API_TOKEN
+    - secretKey: AUTHENTIK_API_URL
+      remoteRef:
+        key: taxonline/dev/auth
+        property: AUTHENTIK_API_URL
+    - secretKey: AUTHENTIK_CLIENT_ID
+      remoteRef:
+        key: taxonline/dev/auth
+        property: AUTHENTIK_CLIENT_ID
+    - secretKey: AUTHENTIK_CLIENT_SECRET
+      remoteRef:
+        key: taxonline/dev/auth
+        property: AUTHENTIK_CLIENT_SECRET
+    - secretKey: AUTHENTIK_TOKEN_URL
+      remoteRef:
+        key: taxonline/dev/auth
+        property: AUTHENTIK_TOKEN_URL
+    - secretKey: AUTHENTIK_JWKS_URL
+      remoteRef:
+        key: taxonline/dev/auth
+        property: AUTHENTIK_JWKS_URL
+    - secretKey: AUTHENTIK_ISSUER
+      remoteRef:
+        key: taxonline/dev/auth
+        property: AUTHENTIK_ISSUER
 
 # ── Ingress ──────────────────────────────────
 ingress:

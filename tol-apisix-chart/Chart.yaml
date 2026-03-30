@@ -1,0 +1,8 @@
+apiVersion: v2
+name: tol-apisix
+description: APISIX Gateway — TaxOnline AI
+type: application
+version: 1.0.0
+appVersion: "3.8.0"
+maintainers:
+  - name: TaxOnline Team

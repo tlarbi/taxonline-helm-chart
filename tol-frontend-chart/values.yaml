@@ -1,9 +1,9 @@
 replicaCount: 2
 
 image:
-  repository: harbor.taxonlineai.com/docker/dashboard-frontend
-  tag: "2.3.0"
-  pullPolicy: IfNotPresent
+  repository: harbor.taxonlineai.com/taxonline/dashboard-frontend
+  tag: "4.19.0"
+  pullPolicy: Always
 
 imagePullSecrets:
   - name: harbor-credentials
@@ -30,12 +30,15 @@ autoscaling:
   targetCPUUtilizationPercentage: 70
 
 env:
-  VITE_API_URL: ""
-  VITE_WS_URL: ""
+  VITE_API_URL: "https://rag.taxonlineai.com"
+  VITE_WS_URL: "wss://rag.taxonlineai.com"
 
 podAnnotations: {}
 podSecurityContext: {}
 securityContext: {}
 nodeSelector: {}
 tolerations: []
-affinity: {}
+affinity: []
+
+ingress:
+  enabled: false

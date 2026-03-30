@@ -1,31 +1,34 @@
-# ── APISIX Standalone Routes — TaxOnline AI ──
-# Ce fichier est monté en ConfigMap et lu par APISIX en mode standalone.
-
 routes:
-  # ── Public (pas d'auth) ──
+  # ── api.taxonlineai.com ──
   - id: 1
-    name: tol-agent-health
+    name: api-health
     uri: /health
     host: api.taxonlineai.com
     upstream_id: 1
 
   - id: 2
-    name: tol-agent-ready
+    name: api-ready
     uri: /ready
     host: api.taxonlineai.com
     upstream_id: 1
 
-  # ── Protégé (jwt-auth + rate limit) ──
   - id: 3
-    name: tol-agent-api
-    desc: "RAG API v2 — JWT auth + rate limiting"
+    name: api-v2
+    desc: "api.taxonlineai.com — RAG API v2"
     uri: /api/v2/*
     host: api.taxonlineai.com
     upstream_id: 1
     plugins:
-      jwt-auth: {}
+      forward-auth:
+        uri: "http://tol-auth.auth.svc.cluster.local:8002/auth/verify"
+        request_headers:
+          - "Authorization"
+        upstream_headers:
+          - "X-User-ID"
+          - "X-User-Role"
+          - "X-User-Plan"
       limit-count:
-        count: 100
+        count: 1000
         time_window: 3600
         key_type: var
         key: remote_addr
@@ -33,6 +36,183 @@ routes:
         rejected_msg: '{"error":"rate limit exceeded"}'
       prometheus:
         prefer_name: true
+
+  # ── rag.taxonlineai.com ──
+  - id: 10
+    name: rag-v2
+    desc: "rag.taxonlineai.com — RAG API v2"
+    uri: /api/v2/chat*
+    host: rag.taxonlineai.com
+    upstream_id: 1
+    plugins:
+      forward-auth:
+        uri: "http://tol-auth.auth.svc.cluster.local:8002/auth/verify"
+        request_headers:
+          - "Authorization"
+        upstream_headers:
+          - "X-User-ID"
+          - "X-User-Role"
+          - "X-User-Plan"
+      limit-count:
+        count: 1000
+        time_window: 3600
+        key_type: var
+        key: remote_addr
+        rejected_code: 429
+        rejected_msg: '{"error":"rate limit exceeded"}'
+      prometheus:
+        prefer_name: true
+
+  # ── Auth endpoints — publics ──
+  - id: 20
+    name: auth-login
+    desc: "Login email/password — public"
+    uri: /api/auth/login
+    methods: ["POST"]
+    hosts:
+      - api.taxonlineai.com
+      - rag.taxonlineai.com
+    upstream_id: 2
+
+  - id: 23
+    name: auth-oidc
+    desc: "OIDC exchange — public"
+    uri: /api/auth/oidc/*
+    methods: ["GET", "POST"]
+    hosts:
+      - api.taxonlineai.com
+      - rag.taxonlineai.com
+    upstream_id: 2
+
+  - id: 24
+    name: auth-logout
+    desc: "Logout — public"
+    uri: /api/auth/logout
+    methods: ["POST", "GET"]
+    hosts:
+      - api.taxonlineai.com
+      - rag.taxonlineai.com
+    upstream_id: 2
+
+  # ── Auth endpoints — protégés ──
+  - id: 21
+    name: auth-me
+    desc: "Profile — protected"
+    uri: /api/auth/me
+    methods: ["GET"]
+    hosts:
+      - api.taxonlineai.com
+      - rag.taxonlineai.com
+    upstream_id: 2
+    plugins:
+      forward-auth:
+        uri: "http://tol-auth.auth.svc.cluster.local:8002/auth/verify"
+        request_headers:
+          - "Authorization"
+        upstream_headers:
+          - "X-User-ID"
+          - "X-User-Role"
+          - "X-User-Plan"
+
+  - id: 22
+    name: auth-users
+    desc: "User CRUD — admin"
+    uri: /api/auth/users*
+    methods: ["GET", "POST", "PUT", "DELETE"]
+    hosts:
+      - api.taxonlineai.com
+      - rag.taxonlineai.com
+    upstream_id: 2
+    plugins:
+      forward-auth:
+        uri: "http://tol-auth.auth.svc.cluster.local:8002/auth/verify"
+        request_headers:
+          - "Authorization"
+        upstream_headers:
+          - "X-User-ID"
+          - "X-User-Role"
+          - "X-User-Plan"
+
+  # ── Ingestion ──
+  - id: 30
+    name: ingestion-api
+    desc: "Ingestion API"
+    uri: /api/v2/ingestion/*
+    hosts:
+      - api.taxonlineai.com
+      - rag.taxonlineai.com
+    upstream_id: 3
+    plugins:
+      forward-auth:
+        uri: "http://tol-auth.auth.svc.cluster.local:8002/auth/verify"
+        request_headers:
+          - "Authorization"
+        upstream_headers:
+          - "X-User-ID"
+          - "X-User-Role"
+          - "X-User-Plan"
+
+  - id: 32
+    name: ingestion-ws
+    desc: "Ingestion WebSocket"
+    uri: /ws/*
+    hosts:
+      - api.taxonlineai.com
+      - rag.taxonlineai.com
+    upstream_id: 3
+    enable_websocket: true
+
+  # ── Monitoring ──
+  - id: 40
+    name: backend-monitoring
+    uri: /api/monitoring/*
+    hosts:
+      - api.taxonlineai.com
+      - rag.taxonlineai.com
+    upstream_id: 4
+    plugins:
+      forward-auth:
+        uri: "http://tol-auth.auth.svc.cluster.local:8002/auth/verify"
+        request_headers:
+          - "Authorization"
+        upstream_headers:
+          - "X-User-ID"
+          - "X-User-Role"
+          - "X-User-Plan"
+
+  - id: 42
+    name: backend-analytics
+    uri: /api/analytics/*
+    hosts:
+      - api.taxonlineai.com
+      - rag.taxonlineai.com
+    upstream_id: 4
+    plugins:
+      forward-auth:
+        uri: "http://tol-auth.auth.svc.cluster.local:8002/auth/verify"
+        request_headers:
+          - "Authorization"
+        upstream_headers:
+          - "X-User-ID"
+          - "X-User-Role"
+          - "X-User-Plan"
+
+  - id: 41
+    name: backend-metrics
+    uri: /api/metrics/*
+    hosts:
+      - api.taxonlineai.com
+      - rag.taxonlineai.com
+    upstream_id: 4
+    plugins:
+      forward-auth:
+        uri: "http://tol-auth.auth.svc.cluster.local:8002/auth/verify"
+        request_headers:
+          - "Authorization"
+        upstream_headers:
+          - "X-User-ID"
+          - "X-User-Role"
+          - "X-User-Plan"
 
 upstreams:
   - id: 1
@@ -45,4 +225,33 @@ upstreams:
       send: 30
       read: 60
 
+  - id: 2
+    name: tol-auth
+    type: roundrobin
+    nodes:
+      "tol-auth.auth.svc.cluster.local:8002": 1
+    timeout:
+      connect: 5
+      send: 10
+      read: 10
+
+  - id: 3
+    name: tol-ingestion
+    type: roundrobin
+    nodes:
+      "tol-ingestion.ingestion.svc.cluster.local:8003": 1
+    timeout:
+      connect: 5
+      send: 30
+      read: 60
+
+  - id: 4
+    name: tol-monitoring
+    type: roundrobin
+    nodes:
+      "tol-monitoring.monitoring.svc.cluster.local:8004": 1
+    timeout:
+      connect: 5
+      send: 10
+      read: 10
 #END

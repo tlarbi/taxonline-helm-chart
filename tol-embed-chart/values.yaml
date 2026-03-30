@@ -1,0 +1,49 @@
+replicaCount: 1
+
+image:
+  repository: harbor.taxonlineai.com/taxonline/tol-embed
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 8000
+
+resources:
+  requests:
+    memory: "512Mi"
+    cpu: "100m"      # ← réduit de 500m à 100m
+  limits:
+    memory: "2.5Gi"
+    cpu: "1500m"     # ← réduit de 2000m à 1500m
+
+env:
+  EMBED_MODEL: "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+  EMBED_DIM: "768"
+  EMBED_CACHE_DIR: "/app/.fastembed_cache"
+  EMBED_MAX_BATCH: "256"
+  LOG_LEVEL: "INFO"
+
+persistence:
+  storageClass: "local-path"
+  size: 2Gi
+  mountPath: "/app/.fastembed_cache"
+
+startupProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  failureThreshold: 30
+  periodSeconds: 10
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  periodSeconds: 30
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  periodSeconds: 10

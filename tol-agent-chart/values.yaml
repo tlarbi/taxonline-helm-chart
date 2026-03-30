@@ -2,8 +2,8 @@ replicaCount: 2
 
 image:
   repository: harbor.taxonlineai.com/taxonline/tol-agent
-  tag: "1.0.0"
-  pullPolicy: Always
+  tag: "8.2.3"
+  pullPolicy: IfNotPresent
 
 imagePullSecrets:
   - name: harbor-credentials
@@ -15,17 +15,20 @@ service:
 resources:
   requests:
     cpu: 200m
-    memory: 768Mi
+    memory: 2Gi
   limits:
     cpu: "1"
-    memory: 1Gi
+    memory: 2Gi
 
 # ── Application Config (non-secret) ──
 env:
   # Qdrant
   QDRANT_HOST: "qdrant.vector.svc.cluster.local"
   QDRANT_PORT: "6333"
-  QDRANT_COLLECTION: "taxonline_chunks_v1"
+  QDRANT_COLLECTION: "tol-docs-v3"
+  QDRANT_TOP_K: "20"
+  RERANKER_ENABLED: "false"
+  TOL_EMBED_URL: "http://tol-embed.embedding.svc.cluster.local:8000"
   # OpenSearch
   OPENSEARCH_HOST: "opensearch-cluster-master.opensearch.svc.cluster.local"
   OPENSEARCH_PORT: "9200"
@@ -46,6 +49,7 @@ env:
   # App
   LOG_LEVEL: "info"
   ENVIRONMENT: "production"
+  LITELLM_LOCAL_MODEL_COST_MAP: "True"
 
 # ── External Secrets (ESO → Vault) ──
 externalSecret:
@@ -135,3 +139,11 @@ ingressRag:
   host: rag.taxonlineai.com
   path: /api/v2
   tlsSecret: rag-taxonlineai-tls
+  # Offline mode — pas d'accès internet depuis le cluster
+  LITELLM_LOCAL_MODEL_COST_MAP: "True"
+  # Offline mode
+  LITELLM_LOCAL_MODEL_COST_MAP: "True"
+
+# Proxy overrides
+proxyOverrides:
+  noProxy: "localhost,127.0.0.1,10.42.0.0/16,10.43.0.0/16,.svc,.svc.cluster.local,api.groq.com,huggingface.co"
