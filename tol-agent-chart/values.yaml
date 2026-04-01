@@ -116,21 +116,11 @@ ingress:
     responseHeaders: "X-User-ID,X-User-Role,X-User-Plan"
 
 # ── Ingress ──
-ingress:
-  enabled: false
-  host: api.taxonlineai.com
-  tlsSecret: api-taxonlineai-tls
-  auth:
-    enabled: true
-    url: "http://tol-auth.auth.svc.cluster.local:8002/auth/verify"
-    responseHeaders: "X-User-ID,X-User-Role,X-User-Plan"
-
-# ── Ingress RAG (coexistence v1/v2 sur rag.taxonlineai.com) ──
 ingressRag:
-  enabled: false
+  enabled: true
   host: rag.taxonlineai.com
   path: /api/v2
-  tlsSecret: rag-taxonlineai-tls
+  tlsSecret: rag-tls
   # Offline mode — pas d'accès internet depuis le cluster
   LITELLM_LOCAL_MODEL_COST_MAP: "True"
   # Offline mode

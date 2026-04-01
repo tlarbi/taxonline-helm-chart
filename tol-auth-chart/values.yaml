@@ -75,6 +75,6 @@ ingress:
         - path: /api/auth(/|$)(.*)
           pathType: ImplementationSpecific
   tls:
-    - secretName: taxonline-tls
+    - secretName: rag-tls
       hosts:
         - rag.taxonlineai.com

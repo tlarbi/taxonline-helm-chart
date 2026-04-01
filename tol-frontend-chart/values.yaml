@@ -42,4 +42,14 @@ tolerations: []
 affinity: []
 
 ingress:
-  enabled: false
+  enabled: true
+  className: nginx
+  hosts:
+    - host: rag.taxonlineai.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: rag-tls
+      hosts:
+        - rag.taxonlineai.com
