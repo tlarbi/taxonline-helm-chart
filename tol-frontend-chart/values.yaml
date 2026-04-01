@@ -1,12 +1,13 @@
 replicaCount: 2
 
 image:
-  repository: harbor.taxonlineai.com/taxonline/dashboard-frontend
+  repository: ghcr.io/tlarbi/tol-frontend
   tag: "4.19.0"
   pullPolicy: Always
 
 imagePullSecrets:
-  - name: harbor-credentials
+
+  - name: ghcr-secret
 
 nameOverride: ""
 fullnameOverride: ""
