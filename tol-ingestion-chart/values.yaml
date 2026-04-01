@@ -5,12 +5,12 @@
 replicaCount: 1
 
 image:
-  repository: harbor.taxonlineai.com/taxonline/tol-ingestion
+  repository: ghcr.io/tlarbi/tol-ingestion
   tag: "1.0.0"
   pullPolicy: IfNotPresent
 
-imagePullSecrets: []
-#  - name: harbor-credentials
+imagePullSecrets:
+  - name: ghcr-secret
 
 nameOverride: ""
 fullnameOverride: ""
@@ -46,19 +46,19 @@ externalSecret:
   data:
     - secretKey: SECRET_KEY
       remoteRef:
-        key: taxonline/dev/ingestion
+        key: taxonline/staging/ingestion
         property: SECRET_KEY
     - secretKey: S3_ACCESS_KEY
       remoteRef:
-        key: taxonline/dev/ingestion
+        key: taxonline/staging/ingestion
         property: S3_ACCESS_KEY
     - secretKey: S3_SECRET_KEY
       remoteRef:
-        key: taxonline/dev/ingestion
+        key: taxonline/staging/ingestion
         property: S3_SECRET_KEY
     - secretKey: OPENSEARCH_PASS
       remoteRef:
-        key: taxonline/dev/ingestion
+        key: taxonline/staging/ingestion
         property: OPENSEARCH_PASS
 
 # ── Fallback Secret (si externalSecret.enabled=false)
