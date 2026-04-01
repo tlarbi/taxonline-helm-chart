@@ -19,7 +19,7 @@ spec:
             pathType: ImplementationSpecific
             backend:
               service:
-                name: {{ include "tol-backend.fullname" . }}
+                name: {{ include "taxonline-frontend.fullname" . }}
                 port:
                   number: {{ .Values.service.port }}
   tls:
