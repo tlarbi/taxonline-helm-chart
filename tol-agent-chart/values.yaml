@@ -1,12 +1,12 @@
 replicaCount: 2
 
 image:
-  repository: harbor.taxonlineai.com/taxonline/tol-agent
+  repository: ghcr.io/tlarbi/tol-agent
   tag: "8.2.3"
   pullPolicy: IfNotPresent
 
 imagePullSecrets:
-  - name: harbor-credentials
+  - name: ghcr-secret
 
 service:
   type: ClusterIP
@@ -61,40 +61,32 @@ externalSecret:
   data:
     - secretKey: SECRET_KEY
       remoteRef:
-        key: taxonline/dev/agent
+        key: taxonline/staging/agent
         property: SECRET_KEY
     - secretKey: DATABASE_URL
       remoteRef:
-        key: taxonline/dev/agent
+        key: taxonline/staging/agent
         property: DATABASE_URL
     - secretKey: OPENSEARCH_PASS
       remoteRef:
-        key: taxonline/dev/agent
+        key: taxonline/staging/agent
         property: OPENSEARCH_PASS
-    - secretKey: LLM_API_KEY
+    - secretKey: GROQ_API_KEY
       remoteRef:
-        key: taxonline/dev/agent
-        property: LLM_API_KEY
-    - secretKey: LANGCHAIN_API_KEY
-      remoteRef:
-        key: taxonline/dev/agent
-        property: LANGCHAIN_API_KEY
-    - secretKey: LANGCHAIN_TRACING_V2
-      remoteRef:
-        key: taxonline/dev/agent
-        property: LANGCHAIN_TRACING_V2
-    - secretKey: LANGCHAIN_PROJECT
-      remoteRef:
-        key: taxonline/dev/agent
-        property: LANGCHAIN_PROJECT
-    - secretKey: LANGCHAIN_ENDPOINT
-      remoteRef:
-        key: taxonline/dev/agent
-        property: LANGCHAIN_ENDPOINT
+        key: taxonline/staging/agent
+        property: GROQ_API_KEY
     - secretKey: REDIS_URL
       remoteRef:
-        key: taxonline/dev/agent
+        key: taxonline/staging/agent
         property: REDIS_URL
+    - secretKey: TAVILY_API_KEY
+      remoteRef:
+        key: taxonline/staging/agent
+        property: TAVILY_API_KEY
+    - secretKey: OPIK_API_KEY
+      remoteRef:
+        key: taxonline/staging/agent
+        property: OPIK_API_KEY
 
 # ── Network Policy ──
 networkPolicy:
