@@ -6,6 +6,8 @@ metadata:
     {{- include "tol-auth.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 3
+  revisionHistoryLimit: 3
   selector:
     matchLabels:
       {{- include "tol-auth.selectorLabels" . | nindent 6 }}
