@@ -34,40 +34,32 @@ externalSecret:
   data:
     - secretKey: SECRET_KEY
       remoteRef:
-        key: taxonline/dev/auth
+        key: taxonline/staging/auth
         property: SECRET_KEY
     - secretKey: DATABASE_URL
       remoteRef:
-        key: taxonline/dev/auth
+        key: taxonline/staging/auth
         property: DATABASE_URL
-    - secretKey: AUTHENTIK_API_TOKEN
+    - secretKey: KEYCLOAK_CLIENT_SECRET
       remoteRef:
-        key: taxonline/dev/auth
-        property: AUTHENTIK_API_TOKEN
-    - secretKey: AUTHENTIK_API_URL
+        key: taxonline/staging/auth
+        property: KEYCLOAK_CLIENT_SECRET
+    - secretKey: KEYCLOAK_ISSUER
       remoteRef:
-        key: taxonline/dev/auth
-        property: AUTHENTIK_API_URL
-    - secretKey: AUTHENTIK_CLIENT_ID
+        key: taxonline/staging/auth
+        property: KEYCLOAK_ISSUER
+    - secretKey: KEYCLOAK_CLIENT_ID
       remoteRef:
-        key: taxonline/dev/auth
-        property: AUTHENTIK_CLIENT_ID
-    - secretKey: AUTHENTIK_CLIENT_SECRET
+        key: taxonline/staging/auth
+        property: KEYCLOAK_CLIENT_ID
+    - secretKey: KEYCLOAK_TOKEN_URL
       remoteRef:
-        key: taxonline/dev/auth
-        property: AUTHENTIK_CLIENT_SECRET
-    - secretKey: AUTHENTIK_TOKEN_URL
+        key: taxonline/staging/auth
+        property: KEYCLOAK_TOKEN_URL
+    - secretKey: KEYCLOAK_JWKS_URL
       remoteRef:
-        key: taxonline/dev/auth
-        property: AUTHENTIK_TOKEN_URL
-    - secretKey: AUTHENTIK_JWKS_URL
-      remoteRef:
-        key: taxonline/dev/auth
-        property: AUTHENTIK_JWKS_URL
-    - secretKey: AUTHENTIK_ISSUER
-      remoteRef:
-        key: taxonline/dev/auth
-        property: AUTHENTIK_ISSUER
+        key: taxonline/staging/auth
+        property: KEYCLOAK_JWKS_URL
 
 # ── Ingress ──────────────────────────────────
 ingress:
