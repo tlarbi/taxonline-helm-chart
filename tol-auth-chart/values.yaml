@@ -67,13 +67,11 @@ ingress:
   className: nginx
   annotations:
     nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /api/auth/$2
-    nginx.ingress.kubernetes.io/service-upstream: "true"
   hosts:
     - host: rag.taxonlineai.com
       paths:
-        - path: /api/auth(/|$)(.*)
-          pathType: ImplementationSpecific
+        - path: /api/auth
+          pathType: Prefix
   tls:
     - secretName: rag-tls
       hosts:
