@@ -60,6 +60,30 @@ externalSecret:
       remoteRef:
         key: taxonline/staging/ingestion
         property: OPENSEARCH_PASS
+    - secretKey: QDRANT_HOST
+      remoteRef:
+        key: taxonline/staging/ingestion
+        property: QDRANT_HOST
+    - secretKey: OPENSEARCH_HOST
+      remoteRef:
+        key: taxonline/staging/ingestion
+        property: OPENSEARCH_HOST
+    - secretKey: REDIS_URL
+      remoteRef:
+        key: taxonline/staging/ingestion
+        property: REDIS_URL
+    - secretKey: DATABASE_URL
+      remoteRef:
+        key: taxonline/staging/ingestion
+        property: DATABASE_URL
+    - secretKey: S3_BUCKET
+      remoteRef:
+        key: taxonline/staging/ingestion
+        property: S3_BUCKET
+    - secretKey: S3_ENDPOINT
+      remoteRef:
+        key: taxonline/staging/ingestion
+        property: S3_ENDPOINT
 
 # ── Fallback Secret (si externalSecret.enabled=false)
 secret:
