@@ -117,7 +117,7 @@ ingress:
   auth:
     enabled: true
     # FIX: URL complète avec /auth/verify (était "/" → 404 sur tol-auth)
-    url: "http://tol-auth.auth.svc.cluster.local:8002/auth/verify"
+    url: "http://tol-auth-staging.tol-staging.svc.cluster.local:8000/auth/verify"
     responseHeaders: "X-User-ID,X-User-Role,X-User-Plan"
 
 # ── Ingress rag.taxonlineai.com ────────────────────────────────────
