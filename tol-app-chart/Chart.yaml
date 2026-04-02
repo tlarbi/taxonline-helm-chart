@@ -1,0 +1,6 @@
+apiVersion: v2
+name: tol-app
+description: TaxOnline AI — Application utilisateur final
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
