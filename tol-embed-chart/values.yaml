@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: harbor.taxonlineai.com/taxonline/tol-embed
+  repository: ghcr.io/tlarbi/tol-embed
   pullPolicy: IfNotPresent
   tag: "latest"
 
@@ -47,3 +47,6 @@ readinessProbe:
     path: /health
     port: 8000
   periodSeconds: 10
+
+imagePullSecrets:
+  - name: ghcr-secret
