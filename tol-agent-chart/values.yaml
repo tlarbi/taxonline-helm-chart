@@ -20,7 +20,7 @@ resources:
     cpu: "1"
     memory: 2Gi
 
-# ── Application Config (non-secret) ──
+# ── Application Config (non-secret) ──────────────────────────────
 env:
   # Qdrant
   QDRANT_HOST: "qdrant.vector.svc.cluster.local"
@@ -50,8 +50,10 @@ env:
   LOG_LEVEL: "info"
   ENVIRONMENT: "production"
   LITELLM_LOCAL_MODEL_COST_MAP: "True"
+  # BFF — URL interne pour proxy vers tol-ingestion
+  TOL_INGESTION_URL: "http://tol-ingestion.ingestion.svc.cluster.local:8003"
 
-# ── External Secrets (ESO → Vault) ──
+# ── External Secrets (ESO → Vault) ───────────────────────────────
 externalSecret:
   enabled: true
   refreshInterval: 5m
@@ -88,7 +90,7 @@ externalSecret:
         key: taxonline/staging/agent
         property: OPIK_API_KEY
 
-# ── Network Policy ──
+# ── Network Policy ────────────────────────────────────────────────
 networkPolicy:
   enabled: false
   allowedNamespaces:
@@ -96,36 +98,42 @@ networkPolicy:
     - opensearch   # OpenSearch
     - ollama       # Ollama + Redis
     - database     # PostgreSQL
-    - auth         # tol-auth (for internal calls if needed)
+    - auth         # tol-auth
+    - ingestion    # tol-ingestion (BFF proxy)
 
-
-# ── Proxy ──
+# ── Proxy ─────────────────────────────────────────────────────────
 proxy:
   http_proxy: "http://10.42.0.1:3128"
   https_proxy: "http://10.42.0.1:3128"
   no_proxy: "localhost,127.0.0.1,10.42.0.0/16,10.43.0.0/16,.svc,.svc.cluster.local"
 
-# ── Ingress ──
+# ── Ingress api.taxonlineai.com ────────────────────────────────────
+# NB: enabled: false — on utilise k8s-routing/nginx-ingress-api.yaml à la place
+# (namespace agent, annotations custom, pas templatable simplement)
 ingress:
   enabled: false
   host: api.taxonlineai.com
   tlsSecret: api-taxonlineai-tls
   auth:
     enabled: true
+    # FIX: URL complète avec /auth/verify (était "/" → 404 sur tol-auth)
     url: "http://tol-auth.auth.svc.cluster.local:8002/auth/verify"
     responseHeaders: "X-User-ID,X-User-Role,X-User-Plan"
 
-# ── Ingress ──
+# ── Ingress rag.taxonlineai.com ────────────────────────────────────
 ingressRag:
   enabled: true
   host: rag.taxonlineai.com
+  # /api/v2 capte chat + ingestion (proxy BFF interne vers tol-ingestion)
   path: /api/v2
   tlsSecret: rag-tls
-  # Offline mode — pas d'accès internet depuis le cluster
-  LITELLM_LOCAL_MODEL_COST_MAP: "True"
-  # Offline mode
-  LITELLM_LOCAL_MODEL_COST_MAP: "True"
+  # Body size max pour uploads PDF (défaut nginx = 1m → 413 sur tout PDF)
+  proxyBodySize: "50m"
+  # Timeouts longs pour uploads + LLM RAG_DEEP chains
+  proxyReadTimeout: "300"
+  proxySendTimeout: "300"
 
-# Proxy overrides
+# ── Proxy overrides ────────────────────────────────────────────────
 proxyOverrides:
   noProxy: "localhost,127.0.0.1,10.42.0.0/16,10.43.0.0/16,.svc,.svc.cluster.local,api.groq.com,huggingface.co"
+

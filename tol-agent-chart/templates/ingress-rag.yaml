@@ -8,10 +8,41 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: nginx
     nginx.ingress.kubernetes.io/service-upstream: "true"
+
     {{- if .Values.ingress.auth.enabled }}
+    # ── External Auth ──────────────────────────────────────────────
+    # NGINX envoie un sub-request GET à tol-auth/auth/verify avant
+    # de proxifier vers tol-agent. 200 = OK, 401/403 = bloqué.
     nginx.ingress.kubernetes.io/auth-url: {{ .Values.ingress.auth.url | quote }}
     nginx.ingress.kubernetes.io/auth-response-headers: {{ .Values.ingress.auth.responseHeaders | quote }}
+    nginx.ingress.kubernetes.io/auth-method: "GET"
+    nginx.ingress.kubernetes.io/auth-snippet: |
+      # Passe le chemin original à verify.py (lit X-Original-URI pour PUBLIC_PATHS)
+      proxy_set_header X-Original-URI $request_uri;
+      proxy_set_header X-Original-Method $request_method;
+      proxy_set_header X-Forwarded-URI $request_uri;
     {{- end }}
+
+    # ── Upload / Request body ──────────────────────────────────────
+    # CRITIQUE : défaut nginx = 1m. Sans ceci, tout PDF > 1 Mo est rejeté
+    # avec 413 Request Entity Too Large AVANT même d'atteindre tol-agent.
+    nginx.ingress.kubernetes.io/proxy-body-size: {{ .Values.ingressRag.proxyBodySize | default "50m" | quote }}
+
+    # ── Timeouts ──────────────────────────────────────────────────
+    # 300s pour couvrir : gros uploads + long chains LLM (RAG_DEEP)
+    nginx.ingress.kubernetes.io/proxy-read-timeout: {{ .Values.ingressRag.proxyReadTimeout | default "300" | quote }}
+    nginx.ingress.kubernetes.io/proxy-send-timeout: {{ .Values.ingressRag.proxySendTimeout | default "300" | quote }}
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+
+    # ── SSE Streaming ─────────────────────────────────────────────
+    # CRITIQUE : sans proxy-buffering off, NGINX accumule le stream SSE
+    # et le client ne reçoit aucun token jusqu'à la fin — streaming cassé.
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+
+    # ── WebSocket ─────────────────────────────────────────────────
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+
 spec:
   tls:
   - hosts:
@@ -29,3 +60,4 @@ spec:
             port:
               number: {{ .Values.service.port }}
 {{- end }}
+

@@ -1,7 +1,3 @@
-# ──────────────────────────────────────────────
-# tol-ingestion — Helm Values
-# ──────────────────────────────────────────────
-
 replicaCount: 1
 
 image:
@@ -12,32 +8,20 @@ image:
 imagePullSecrets:
   - name: ghcr-secret
 
-nameOverride: ""
-fullnameOverride: ""
-
-# ── Service ──────────────────────────────────
 service:
   type: ClusterIP
   port: 8003
 
-# ── Ingress ──────────────────────────────────
+# ── Ingress — désactivé intentionnellement ────────────────────────
+# tol-ingestion N'EST PAS exposé directement à l'internet.
+# Les requêtes /api/v2/ingestion/* arrivent via tol-agent (BFF proxy).
+# Cela évite de dupliquer les annotations external-auth et body-size.
 ingress:
   enabled: false
-  className: nginx
-  annotations: {}
-  hosts:
-    - host: ingestion.taxonlineai.com
-      paths:
-        - path: /
-          pathType: Prefix
-  tls:
-    - secretName: taxonline-tls
-      hosts:
-        - ingestion.taxonlineai.com
 
-# ── External Secrets (HashiCorp Vault) ───────
+# ── External Secrets (HashiCorp Vault) ───────────────────────────
 externalSecret:
-  enabled: false
+  enabled: true
   secretStoreName: vault-backend
   secretStoreKind: ClusterSecretStore
   refreshInterval: 1h
@@ -60,71 +44,30 @@ externalSecret:
       remoteRef:
         key: taxonline/staging/ingestion
         property: OPENSEARCH_PASS
-    - secretKey: QDRANT_HOST
-      remoteRef:
-        key: taxonline/staging/ingestion
-        property: QDRANT_HOST
-    - secretKey: OPENSEARCH_HOST
-      remoteRef:
-        key: taxonline/staging/ingestion
-        property: OPENSEARCH_HOST
-    - secretKey: REDIS_URL
-      remoteRef:
-        key: taxonline/staging/ingestion
-        property: REDIS_URL
     - secretKey: DATABASE_URL
       remoteRef:
         key: taxonline/staging/ingestion
         property: DATABASE_URL
-    - secretKey: S3_BUCKET
-      remoteRef:
-        key: taxonline/staging/ingestion
-        property: S3_BUCKET
-    - secretKey: S3_ENDPOINT
-      remoteRef:
-        key: taxonline/staging/ingestion
-        property: S3_ENDPOINT
 
-# ── Fallback Secret (si externalSecret.enabled=false)
-secret:
-  enabled: true
-  name: tol-ingestion-secrets
-  data:
-    SECRET_KEY: ""
-    S3_ACCESS_KEY: ""
-    S3_SECRET_KEY: ""
-    OPENSEARCH_PASS: ""
-
-# ── Application Config (non-sensitive) ───────
+# ── Application Config (non-sensitive) ───────────────────────────
 config:
   DEBUG: "false"
-
-  # S3 / OVH Object Storage
   S3_ENDPOINT: "https://s3.gra.io.cloud.ovh.net"
   S3_BUCKET: "taxonline-datalake"
   S3_REGION: "gra"
-
-  # Qdrant
   QDRANT_HOST: "qdrant.vector.svc.cluster.local"
   QDRANT_PORT: "6333"
   QDRANT_COLLECTION: "tol-docs-v3"
   TOL_EMBED_URL: "http://tol-embed.embedding.svc.cluster.local:8000"
-
-  # OpenSearch
   OPENSEARCH_HOST: "opensearch-cluster-master.opensearch.svc.cluster.local"
   OPENSEARCH_PORT: "9200"
   OPENSEARCH_USER: "admin"
   OPENSEARCH_SSL: "true"
   OPENSEARCH_INDEX: "taxonline"
   OPENSEARCH_ENABLED: "true"
-
-  # Embedding (Ollama)
-  OLLAMA_HOST: "ollama.ollama.svc.cluster.local"
-  OLLAMA_PORT: "11434"
   EMBED_MODEL: "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
   EMBED_DIM: "768"
 
-# ── Resources ────────────────────────────────
 resources:
   requests:
     cpu: 100m
@@ -133,7 +76,6 @@ resources:
     cpu: 1000m
     memory: 1024Mi
 
-# ── Probes ───────────────────────────────────
 livenessProbe:
   httpGet:
     path: /health
@@ -152,22 +94,15 @@ readinessProbe:
   timeoutSeconds: 10
   failureThreshold: 5
 
-# ── Pod Disruption Budget ────────────────────
-pdb:
-  enabled: false
-  minAvailable: 1
-
-# ── Network Policy ───────────────────────────
+# ── Network Policy ────────────────────────────────────────────────
 networkPolicy:
   enabled: false
   ingress:
     - from:
+        # FIX: APISIX supprimé — tol-agent (BFF proxy) est l'unique appelant
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: apisix
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: ollama
+              kubernetes.io/metadata.name: agent
       ports:
         - port: 8003
   egress:
@@ -186,20 +121,17 @@ networkPolicy:
     - to:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: ollama
+              kubernetes.io/metadata.name: embedding
       ports:
-        - port: 11434
-    # DNS
+        - port: 8000
     - to: []
       ports:
         - port: 53
           protocol: UDP
-    # S3 OVH (HTTPS)
     - to: []
       ports:
         - port: 443
 
-# ── ServiceMonitor (Prometheus) ──────────────
 serviceMonitor:
   enabled: false
   namespace: monitoring
@@ -208,15 +140,9 @@ serviceMonitor:
   labels:
     release: tol-monitoring
 
-# ── Autoscaling ──────────────────────────────
 autoscaling:
   enabled: false
   minReplicas: 1
   maxReplicas: 3
   targetCPUUtilizationPercentage: 70
-
-# ── Pod config ───────────────────────────────
-nodeSelector: {}
-tolerations: []
-affinity: {}
 
