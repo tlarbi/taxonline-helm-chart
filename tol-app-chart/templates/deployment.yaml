@@ -6,6 +6,7 @@ metadata:
     app: tol-app
 spec:
   replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: tol-app
@@ -31,3 +32,4 @@ spec:
             httpGet: { path: /health, port: 80 }
             initialDelaySeconds: 5
             periodSeconds: 10
+  revisionHistoryLimit: 2
