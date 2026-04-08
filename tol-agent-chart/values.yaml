@@ -23,7 +23,7 @@ resources:
 # ── Application Config (non-secret) ──────────────────────────────
 env:
   # Qdrant
-  QDRANT_HOST: "qdrant.vector.svc.cluster.local"
+  QDRANT_HOST: "qdrant-staging.storage.svc.cluster.local"
   QDRANT_PORT: "6333"
   QDRANT_COLLECTION: "tol-docs-v3"
   QDRANT_TOP_K: "20"
