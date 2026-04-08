@@ -52,6 +52,7 @@ env:
   LITELLM_LOCAL_MODEL_COST_MAP: "True"
   # BFF — URL interne pour proxy vers tol-ingestion
   TOL_INGESTION_URL: "http://tol-ingestion.ingestion.svc.cluster.local:8003"
+  GRAPH_GRAPH_ENRICHMENT_ENABLED: "false"
 
 # ── External Secrets (ESO → Vault) ───────────────────────────────
 externalSecret:
