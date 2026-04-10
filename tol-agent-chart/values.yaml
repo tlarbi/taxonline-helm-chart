@@ -28,7 +28,7 @@ env:
   QDRANT_COLLECTION: "tol-docs-v3"
   QDRANT_TOP_K: "20"
   RERANKER_ENABLED: "false"
-  TOL_EMBED_URL: "http://tol-embed.embedding.svc.cluster.local:8000"
+  TOL_EMBED_URL: "http://tol-embed-staging.tol-staging.svc.cluster.local:8000"
   # OpenSearch
   OPENSEARCH_HOST: "opensearch-staging.storage.svc.cluster.local"
   OPENSEARCH_PORT: "9200"
