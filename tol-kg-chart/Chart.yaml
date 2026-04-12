@@ -1,11 +1,6 @@
 apiVersion: v2
-name: tol-knowledge-graph
-description: TaxOnline AI — Knowledge Graph (FalkorDB + API)
+name: tol-kg
+description: TaxOnline AI — Knowledge Graph Service (FalkorDB)
 type: application
 version: 1.0.0
 appVersion: "1.0.0"
-keywords:
-  - taxonline
-  - knowledge-graph
-  - falkordb
-
