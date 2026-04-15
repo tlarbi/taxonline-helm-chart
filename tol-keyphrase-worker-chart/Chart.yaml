@@ -1,0 +1,3 @@
+apiVersion: v2
+name: tol-keyphrase-worker
+version: 1.0.0
