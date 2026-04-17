@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "tol-auth.fullname" . }}-license-expiry
+  labels:
+    {{- include "tol-auth.labels" . | nindent 4 }}
+spec:
+  schedule: "0 1 * * *"  # Tous les jours à 1h du matin
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          imagePullSecrets:
+            - name: ghcr-secret
+          containers:
+            - name: license-expiry-check
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              command: ["python3", "-m", "app.jobs.license_expiry_check"]
+              envFrom:
+                - secretRef:
+                    name: {{ .Values.externalSecret.targetName }}
+              env:
+                - name: PYTHONPATH
+                  value: /app
