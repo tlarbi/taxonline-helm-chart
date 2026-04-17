@@ -31,5 +31,5 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: tol-ingestion-secrets
-                  key: database-url
+                  key: DATABASE_URL
 {{- end }}
