@@ -60,6 +60,10 @@ externalSecret:
       remoteRef:
         key: taxonline/staging/auth
         property: KEYCLOAK_JWKS_URL
+    - secretKey: RESEND_API_KEY
+      remoteRef:
+        key: taxonline/staging/auth
+        property: RESEND_API_KEY
 
 # ── Ingress ──────────────────────────────────
 ingress:
