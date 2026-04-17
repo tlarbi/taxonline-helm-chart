@@ -20,13 +20,17 @@ ingress:
   enabled: false
 
 # ── External Secrets (HashiCorp Vault) ───────────────────────────
+# The target Secret name is derived from the tol-ingestion.secretName
+# helper (same as deployment.yaml and secret.yaml). It resolves to:
+#   {{ include "tol-ingestion.fullname" . }}-secrets
+# which, with fullnameOverride: tol-ingestion-staging, produces
+#   tol-ingestion-staging-secrets
+# — i.e. the exact name the Deployment's envFrom reaches for.
 externalSecret:
   enabled: true
   secretStoreName: vault-backend
   secretStoreKind: ClusterSecretStore
   refreshInterval: 1h
-  target:
-    name: tol-ingestion-secrets
   data:
     - secretKey: SECRET_KEY
       remoteRef:
@@ -145,4 +149,8 @@ autoscaling:
   minReplicas: 1
   maxReplicas: 3
   targetCPUUtilizationPercentage: 70
+
+jobs:
+  resetFailed:
+    enabled: false
 

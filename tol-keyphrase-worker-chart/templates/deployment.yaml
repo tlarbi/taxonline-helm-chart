@@ -39,5 +39,10 @@ spec:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: tol-ingestion-secrets
+                  # Must match whatever name the tol-ingestion chart
+                  # generates for its Secret (helper-derived). Override
+                  # via values per-env until this worker gets its own
+                  # ExternalSecret pointing at the same Vault path.
+                  name: {{ .Values.ingestionSecret.name | default "tol-ingestion-secrets" }}
                   key: DATABASE_URL
+
