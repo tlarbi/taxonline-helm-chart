@@ -1,0 +1,35 @@
+{{- if .Values.jobs.resetFailed.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: reset-failed-pipelines
+  namespace: {{ .Release.Namespace }}
+spec:
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: reset
+          image: python:3.11-slim
+          command:
+            - sh
+            - -c
+            - |
+              pip install asyncpg -q && python3 -c "
+              import asyncio, asyncpg, os
+              async def main():
+                  conn = await asyncpg.connect(os.environ['DATABASE_URL'])
+                  await conn.execute(\"UPDATE pipeline_runs SET status='failed', error_message='Reset IaC' WHERE status='running'\")
+                  rows = await conn.fetch('SELECT status, count(*) FROM pipeline_runs GROUP BY status')
+                  for r in rows: print(dict(r))
+                  await conn.close()
+              asyncio.run(main())
+              "
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: tol-ingestion-secrets
+                  key: database-url
+{{- end }}
