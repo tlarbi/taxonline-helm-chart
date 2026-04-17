@@ -35,10 +35,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{- define "tol-ingestion.secretName" -}}
-{{- if .Values.externalSecret.enabled }}
-{{- .Values.externalSecret.target.name }}
-{{- else }}
-{{- .Values.secret.name | default (printf "%s-secrets" (include "tol-ingestion.fullname" .)) }}
-{{- end }}
+{{- printf "%s-secrets" (include "tol-ingestion.fullname" .) }}
 {{- end }}
 
