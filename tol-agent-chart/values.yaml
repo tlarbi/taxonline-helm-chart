@@ -152,7 +152,7 @@ ingress:
 ingressRag:
   enabled: true
   host: rag.taxonlineai.com
-  path: /api/v2
+  path: /api
   tlsSecret: rag-tls
   proxyBodySize: "50m"
   proxyReadTimeout: "300"
