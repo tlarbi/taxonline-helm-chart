@@ -166,6 +166,7 @@ jobs:
     allowedOrigins:
       - "https://rag.taxonlineai.com"
       - "https://legal-taxonline.com"
+      - "https://chat.taxonlineai.com"
     allowedMethods:
       - PUT
       - GET
