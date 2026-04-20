@@ -1,0 +1,157 @@
+{{- if .Values.jobs.s3Cors.enabled }}
+# ─────────────────────────────────────────────────────────────────────
+# S3 bucket CORS configuration — IaC
+#
+# Runs as a Helm hook on every install/upgrade. The `put_bucket_cors`
+# call is declarative and idempotent: re-applying the same policy is
+# a no-op, re-applying a changed policy converges to the new state.
+# If someone edits the bucket CORS by hand, ArgoCD + helm will restore
+# the versioned state on the next sync.
+#
+# Driven by .Values.jobs.s3Cors.allowedOrigins — configurable per env
+# via gitops values overrides.
+#
+# Uses the same Vault-backed secret as the main deployment
+# (tol-ingestion.secretName) so the credentials path is never forked.
+# ─────────────────────────────────────────────────────────────────────
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tol-ingestion.fullname" . }}-s3-cors
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tol-ingestion.labels" . | nindent 4 }}
+    app.kubernetes.io/component: s3-cors-setup
+  annotations:
+    "helm.sh/hook":                  post-install,post-upgrade
+    "helm.sh/hook-weight":           "0"
+    "helm.sh/hook-delete-policy":    before-hook-creation,hook-succeeded
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        {{- include "tol-ingestion.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: s3-cors-setup
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: s3-cors
+          image: python:3.11-slim
+          env:
+            - name: S3_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tol-ingestion.fullname" . }}-config
+                  key: S3_ENDPOINT
+            - name: S3_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tol-ingestion.fullname" . }}-config
+                  key: S3_BUCKET
+            - name: S3_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "tol-ingestion.fullname" . }}-config
+                  key: S3_REGION
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tol-ingestion.secretName" . }}
+                  key: S3_ACCESS_KEY
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tol-ingestion.secretName" . }}
+                  key: S3_SECRET_KEY
+            - name: ALLOWED_ORIGINS
+              value: {{ join "," .Values.jobs.s3Cors.allowedOrigins | quote }}
+            - name: ALLOWED_METHODS
+              value: {{ join "," .Values.jobs.s3Cors.allowedMethods | quote }}
+            - name: MAX_AGE_SECONDS
+              value: {{ .Values.jobs.s3Cors.maxAgeSeconds | quote }}
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              pip install --quiet boto3
+              python3 - <<'PYEOF'
+              import os, json, sys
+              import boto3
+              from botocore.exceptions import ClientError
+
+              s3 = boto3.client(
+                  "s3",
+                  endpoint_url=os.environ["S3_ENDPOINT"],
+                  aws_access_key_id=os.environ["S3_ACCESS_KEY"],
+                  aws_secret_access_key=os.environ["S3_SECRET_KEY"],
+                  region_name=os.environ.get("S3_REGION", "gra"),
+              )
+              bucket = os.environ["S3_BUCKET"]
+
+              origins = [o.strip() for o in os.environ["ALLOWED_ORIGINS"].split(",") if o.strip()]
+              methods = [m.strip() for m in os.environ["ALLOWED_METHODS"].split(",") if m.strip()]
+              max_age = int(os.environ["MAX_AGE_SECONDS"])
+
+              desired = {
+                  "CORSRules": [{
+                      "AllowedOrigins": origins,
+                      "AllowedMethods": methods,
+                      "AllowedHeaders": ["*"],
+                      "ExposeHeaders":  ["ETag"],
+                      "MaxAgeSeconds":  max_age,
+                  }]
+              }
+
+              # Skip write when live config already matches — keeps Job logs clean
+              # on every ArgoCD sync. put_bucket_cors is idempotent so this is an
+              # optimisation, not a safety requirement.
+              try:
+                  current = s3.get_bucket_cors(Bucket=bucket).get("CORSRules", [])
+              except ClientError as e:
+                  code = e.response["Error"]["Code"]
+                  if code in ("NoSuchCORSConfiguration", "NoSuchCORS"):
+                      current = []
+                  else:
+                      print(f"[s3-cors] failed to read current CORS: {e}", file=sys.stderr)
+                      sys.exit(1)
+
+              if current == desired["CORSRules"]:
+                  print(f"[s3-cors] bucket {bucket} already matches desired CORS, nothing to do")
+                  print(json.dumps(current, indent=2))
+                  sys.exit(0)
+
+              print(f"[s3-cors] applying CORS to bucket {bucket}")
+              print("[s3-cors] desired:")
+              print(json.dumps(desired["CORSRules"], indent=2))
+              if current:
+                  print("[s3-cors] previous:")
+                  print(json.dumps(current, indent=2))
+
+              s3.put_bucket_cors(Bucket=bucket, CORSConfiguration=desired)
+
+              # Readback check — OVH has had cases of silent drop on eventual
+              # consistency; failing fast makes the Job visibly red rather than
+              # leaving a false success.
+              readback = s3.get_bucket_cors(Bucket=bucket).get("CORSRules", [])
+              if readback != desired["CORSRules"]:
+                  print("[s3-cors] readback mismatch after apply — failing Job", file=sys.stderr)
+                  print(json.dumps(readback, indent=2), file=sys.stderr)
+                  sys.exit(2)
+
+              print("[s3-cors] applied + readback OK")
+              PYEOF
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+{{- end }}

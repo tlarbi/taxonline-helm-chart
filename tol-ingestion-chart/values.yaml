@@ -154,3 +154,20 @@ jobs:
   resetFailed:
     enabled: false
 
+  # ─────────────────────────────────────────────────────────────────
+  # S3 bucket CORS configuration (post-install/post-upgrade helm hook).
+  # Idempotent: the Job skips the write when the live bucket already
+  # matches the declared spec, so it's safe to leave enabled.
+  #
+  # Override `allowedOrigins` per-environment in gitops values files.
+  # ─────────────────────────────────────────────────────────────────
+  s3Cors:
+    enabled: true
+    allowedOrigins:
+      - "https://rag.taxonlineai.com"
+      - "https://legal-taxonline.com"
+    allowedMethods:
+      - PUT
+      - GET
+      - HEAD
+    maxAgeSeconds: 3000
