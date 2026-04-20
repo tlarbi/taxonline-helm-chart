@@ -49,10 +49,12 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           {{- if .Values.documentAi.enabled }}
           # ── Google Document AI credentials (Sprint 9) ─────────
-          # Le SDK google-cloud-documentai lit la clé depuis le
-          # fichier pointé par GOOGLE_APPLICATION_CREDENTIALS (voir
-          # configmap). On matérialise la clé `DOCUMENT_AI_CREDENTIALS_JSON`
-          # du Secret en fichier, projetée en readOnly + mode 0400.
+          # The google-cloud-documentai SDK reads the service account
+          # key from the file pointed at by GOOGLE_APPLICATION_CREDENTIALS
+          # (defined in the gitops config block). Here we project the
+          # DOCUMENT_AI_CREDENTIALS_JSON key from the same K8s Secret
+          # that envFrom loads — no second Secret, single rotation
+          # surface, readOnly + 0400 perms.
           volumeMounts:
             - name: google-credentials
               mountPath: {{ .Values.documentAi.mountPath | default "/var/secrets/google" }}

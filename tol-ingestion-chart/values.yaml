@@ -26,6 +26,10 @@ ingress:
 # which, with fullnameOverride: tol-ingestion-staging, produces
 #   tol-ingestion-staging-secrets
 # — i.e. the exact name the Deployment's envFrom reaches for.
+#
+# NOTE: The actual `data` list for each environment lives in the
+# gitops values file (taxonline-gitops/charts/{env}/tol-ingestion-values.yaml).
+# The block below is just a default/fallback for envs without a gitops override.
 externalSecret:
   enabled: true
   secretStoreName: vault-backend
@@ -53,30 +57,6 @@ externalSecret:
         key: taxonline/staging/ingestion
         property: DATABASE_URL
 
-    # ── Google Document AI credentials (Sprint 9 OCR) ─────────────
-    # Vault path: secret/taxonline/staging/document-ai (KV v2)
-    # ESO ajoute `secret/` automatiquement (store path: secret, v2).
-    - secretKey: DOCUMENT_AI_CREDENTIALS_JSON
-      remoteRef:
-        key: taxonline/staging/document-ai
-        property: credentials_json
-    - secretKey: DOCUMENT_AI_PROJECT_ID
-      remoteRef:
-        key: taxonline/staging/document-ai
-        property: project_id
-    - secretKey: DOCUMENT_AI_PROJECT_NUMBER
-      remoteRef:
-        key: taxonline/staging/document-ai
-        property: project_number
-    - secretKey: DOCUMENT_AI_PROCESSOR_ID
-      remoteRef:
-        key: taxonline/staging/document-ai
-        property: processor_id
-    - secretKey: DOCUMENT_AI_LOCATION
-      remoteRef:
-        key: taxonline/staging/document-ai
-        property: location
-
 # ── Application Config (non-sensitive) ───────────────────────────
 config:
   DEBUG: "false"
@@ -96,22 +76,15 @@ config:
   EMBED_MODEL: "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
   EMBED_DIM: "768"
 
-  # ── OCR (Sprint 9) ────────────────────────────────────────────
-  # OCR_PROVIDER = google_document_ai | tesseract
-  # Si Document AI est indisponible, basculer à "tesseract" (fallback).
-  OCR_PROVIDER: "google_document_ai"
-  OCR_MIN_CONFIDENCE: "0.80"
-  GOOGLE_APPLICATION_CREDENTIALS: "/var/secrets/google/credentials.json"
-
-# ── Google Document AI mount (Sprint 9) ──────────────────────────
-# Quand enabled=true, le deployment :
-#   - monte DOCUMENT_AI_CREDENTIALS_JSON (clé du secret) comme fichier
-#     /var/secrets/google/credentials.json (mode 0400, readOnly)
-#   - le SDK google-cloud-documentai lit ce fichier via
-#     GOOGLE_APPLICATION_CREDENTIALS (défini dans config ci-dessus).
-# Désactiver sur un env qui n'a pas d'OCR actif.
+# ── Google Document AI mount (Sprint 9 OCR) ──────────────────────
+# Default = false (chart is safe in envs without OCR active).
+# Gitops values files turn this on per-env (e.g. staging: enabled=true).
+# When enabled, deployment.yaml projects DOCUMENT_AI_CREDENTIALS_JSON
+# from the K8s Secret as a file at mountPath/credentials.json, and
+# the google-cloud-documentai SDK reads it via
+# GOOGLE_APPLICATION_CREDENTIALS (set in the gitops config block).
 documentAi:
-  enabled: true
+  enabled: false
   mountPath: /var/secrets/google
 
 resources:
