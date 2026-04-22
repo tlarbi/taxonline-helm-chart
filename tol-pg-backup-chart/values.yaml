@@ -3,6 +3,9 @@ image:
   tag: develop-latest
   pullPolicy: IfNotPresent
 
+imagePullSecrets:
+  - name: ghcr-secret
+
 schedule: "0 2 * * *"
 retentionDays: 7
 
