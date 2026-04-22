@@ -12,11 +12,9 @@ s3:
   endpoint: https://s3.gra.io.cloud.ovh.net
   region: gra
 
-# Where secrets come from — pulled via ExternalSecret from Vault.
 vault:
-  postgresPath: secret/data/taxonline/postgres
-  s3Path:       secret/data/taxonline/s3
-  storeRef:     vault-backend
+  path:     taxonline/staging/backup
+  storeRef: vault-backend
 
 resources:
   requests:
