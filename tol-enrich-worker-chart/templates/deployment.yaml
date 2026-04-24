@@ -1,104 +1,71 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "tol-enrich-worker.fullname" . }}
-  labels:
-    {{- include "tol-enrich-worker.labels" . | nindent 4 }}
+  name: {{ .Release.Name }}
+  namespace: {{ .Values.namespace | default "tol-staging" }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: 1
   strategy:
-    # Recreate au lieu de RollingUpdate :
-    # un seul worker à la fois → évite que 2 instances tirent les mêmes jobs
-    # pendant le rollout (FOR UPDATE SKIP LOCKED gère ça mais c'est plus propre).
+    # Recreate au lieu de RollingUpdate : un seul worker à la fois.
+    # FOR UPDATE SKIP LOCKED gère la cohérence, c'est juste plus propre au rollout.
     type: Recreate
   selector:
     matchLabels:
-      {{- include "tol-enrich-worker.selectorLabels" . | nindent 6 }}
+      app: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        {{- include "tol-enrich-worker.selectorLabels" . | nindent 8 }}
-      {{- with .Values.podAnnotations }}
-      annotations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        app: {{ .Release.Name }}
     spec:
-      {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        - name: ghcr-secret
       containers:
         - name: worker
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          ports:
-            - name: health
-              containerPort: 9090
-              protocol: TCP
+          resources:
+            requests:
+              memory: {{ .Values.resources.requests.memory }}
+              cpu: {{ .Values.resources.requests.cpu }}
+            limits:
+              memory: {{ .Values.resources.limits.memory }}
+              cpu: {{ .Values.resources.limits.cpu }}
           env:
-            # ── DB & secrets (from External Secrets) ──
+            - name: QDRANT_HOST
+              value: {{ .Values.env.QDRANT_HOST }}
+            - name: QDRANT_PORT
+              value: "{{ .Values.env.QDRANT_PORT }}"
+            - name: QDRANT_COLLECTION
+              value: {{ .Values.env.QDRANT_COLLECTION }}
+            - name: AUTH_INTERNAL_URL
+              value: {{ .Values.env.AUTH_INTERNAL_URL }}
+            - name: BATCH_SIZE
+              value: "{{ .Values.env.BATCH_SIZE }}"
+            - name: POLL_SECONDS
+              value: "{{ .Values.env.POLL_SECONDS }}"
+            - name: RATE_LIMIT_RPM
+              value: "{{ .Values.env.RATE_LIMIT_RPM }}"
+            - name: MAX_ATTEMPTS
+              value: "{{ .Values.env.MAX_ATTEMPTS }}"
+            - name: STALE_MINUTES
+              value: "{{ .Values.env.STALE_MINUTES }}"
+            - name: ALIAS_CACHE_SECONDS
+              value: "{{ .Values.env.ALIAS_CACHE_SECONDS }}"
+            - name: CLAUDE_MODEL
+              value: {{ .Values.env.CLAUDE_MODEL }}
+            - name: CLAUDE_MAX_TOKENS
+              value: "{{ .Values.env.CLAUDE_MAX_TOKENS }}"
+            - name: CLAUDE_INPUT_USD_PER_1M
+              value: "{{ .Values.env.CLAUDE_INPUT_USD_PER_1M }}"
+            - name: CLAUDE_OUTPUT_USD_PER_1M
+              value: "{{ .Values.env.CLAUDE_OUTPUT_USD_PER_1M }}"
+            # ── Secrets depuis le secret partagé tol-ingestion-staging-secrets ──
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "tol-enrich-worker.fullname" . }}-secrets
+                  name: tol-ingestion-staging-secrets
                   key: DATABASE_URL
             - name: ANTHROPIC_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "tol-enrich-worker.fullname" . }}-secrets
+                  name: tol-ingestion-staging-secrets
                   key: ANTHROPIC_API_KEY
-            # ── Connectivity ──
-            - name: QDRANT_HOST
-              value: {{ .Values.qdrant.host | quote }}
-            - name: QDRANT_PORT
-              value: {{ .Values.qdrant.port | quote }}
-            - name: QDRANT_COLLECTION
-              value: {{ .Values.qdrant.collection | quote }}
-            - name: AUTH_INTERNAL_URL
-              value: {{ .Values.auth.internalUrl | quote }}
-            # ── Worker tuning ──
-            - name: BATCH_SIZE
-              value: {{ .Values.worker.batchSize | quote }}
-            - name: POLL_SECONDS
-              value: {{ .Values.worker.pollSeconds | quote }}
-            - name: RATE_LIMIT_RPM
-              value: {{ .Values.worker.rateLimitRpm | quote }}
-            - name: MAX_ATTEMPTS
-              value: {{ .Values.worker.maxAttempts | quote }}
-            - name: STALE_MINUTES
-              value: {{ .Values.worker.staleMinutes | quote }}
-            - name: ALIAS_CACHE_SECONDS
-              value: {{ .Values.worker.aliasCacheSeconds | quote }}
-            # ── Claude config ──
-            - name: CLAUDE_MODEL
-              value: {{ .Values.worker.claudeModel | quote }}
-            - name: CLAUDE_MAX_TOKENS
-              value: {{ .Values.worker.claudeMaxTokens | quote }}
-            - name: CLAUDE_INPUT_USD_PER_1M
-              value: {{ .Values.worker.claudeInputUsdPer1m | quote }}
-            - name: CLAUDE_OUTPUT_USD_PER_1M
-              value: {{ .Values.worker.claudeOutputUsdPer1m | quote }}
-            - name: HEALTH_PORT
-              value: "9090"
-          {{- with .Values.livenessProbe }}
-          livenessProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.readinessProbe }}
-          readinessProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
-      {{- with .Values.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
