@@ -13,6 +13,6 @@ resources:
 env:
   QDRANT_HOST: "qdrant-staging.storage.svc.cluster.local"
   QDRANT_PORT: "6333"
-  QDRANT_COLLECTION: "tol-docs-v3"
+  QDRANT_COLLECTION: "tol-corpus"
   BATCH_SIZE: "10"
   POLL_SECONDS: "5"

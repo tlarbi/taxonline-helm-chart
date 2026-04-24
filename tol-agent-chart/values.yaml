@@ -25,7 +25,7 @@ env:
   # Qdrant
   QDRANT_HOST: "qdrant-staging.storage.svc.cluster.local"
   QDRANT_PORT: "6333"
-  QDRANT_COLLECTION: "tol-docs-v3"
+  QDRANT_COLLECTION: "tol-corpus"
   QDRANT_TOP_K: "20"
   RERANKER_ENABLED: "false"
   TOL_EMBED_URL: "http://tol-embed-staging.tol-staging.svc.cluster.local:8000"

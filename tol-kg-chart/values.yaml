@@ -25,7 +25,7 @@ env:
   FALKORDB_PORT: "6379"
   QDRANT_HOST: "qdrant-staging.storage.svc.cluster.local"
   QDRANT_PORT: "6333"
-  QDRANT_COLLECTION: "tol-docs-v3"
+  QDRANT_COLLECTION: "tol-corpus"
 
 externalSecret:
   enabled: false

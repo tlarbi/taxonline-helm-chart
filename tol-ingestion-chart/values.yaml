@@ -65,7 +65,7 @@ config:
   S3_REGION: "gra"
   QDRANT_HOST: "qdrant.vector.svc.cluster.local"
   QDRANT_PORT: "6333"
-  QDRANT_COLLECTION: "tol-docs-v3"
+  QDRANT_COLLECTION: "tol-corpus"
   TOL_EMBED_URL: "http://tol-embed.embedding.svc.cluster.local:8000"
   OPENSEARCH_HOST: "opensearch-cluster-master.opensearch.svc.cluster.local"
   OPENSEARCH_PORT: "9200"
