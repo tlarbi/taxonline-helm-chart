@@ -1,0 +1,94 @@
+# tol-enrich-worker — defaults
+# All values are intentionally conservative for staging.
+# Override per env in taxonline-gitops/charts/<env>/tol-enrich-worker-values.yaml
+
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/tlarbi/tol-enrich-worker
+  tag: develop
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# ─── Worker config ──────────────────────────────────────────────
+worker:
+  batchSize: 5
+  pollSeconds: 5
+  rateLimitRpm: 50
+  maxAttempts: 3
+  staleMinutes: 5
+  claudeModel: claude-haiku-4-5-20251001
+  claudeMaxTokens: 500
+  claudeInputUsdPer1m: 1.0
+  claudeOutputUsdPer1m: 5.0
+  aliasCacheSeconds: 60
+
+# ─── Connectivity ───────────────────────────────────────────────
+qdrant:
+  host: qdrant.storage.svc.cluster.local
+  port: "6333"
+  collection: tol-corpus
+
+auth:
+  internalUrl: http://tol-auth-staging.tol-staging.svc.cluster.local:8000
+
+# ─── Secrets via External Secrets Operator ──────────────────────
+# Vault path: taxonline/staging/agent (already provisioned, has ANTHROPIC_API_KEY)
+externalSecrets:
+  enabled: true
+  secretStoreRefName: vault-cluster-store
+  secretStoreRefKind: ClusterSecretStore
+  refreshInterval: 1h
+  remoteRefs:
+    # Populates env var ANTHROPIC_API_KEY
+    anthropic:
+      remoteKey: taxonline/staging/agent
+      property: ANTHROPIC_API_KEY
+    # Populates env var DATABASE_URL
+    database:
+      remoteKey: taxonline/staging/postgres
+      property: DATABASE_URL
+
+# ─── Resources ──────────────────────────────────────────────────
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# ─── Probes ─────────────────────────────────────────────────────
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 9090
+  initialDelaySeconds: 15
+  periodSeconds: 30
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: 9090
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+# ─── Service (for Prometheus scraping) ──────────────────────────
+service:
+  enabled: true
+  port: 9090
+  type: ClusterIP
+
+# ─── ServiceMonitor (Prometheus operator) ───────────────────────
+serviceMonitor:
+  enabled: false   # enable in prod once Prometheus is wired in
+
+# ─── Misc ───────────────────────────────────────────────────────
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

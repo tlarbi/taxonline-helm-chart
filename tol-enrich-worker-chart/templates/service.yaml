@@ -1,0 +1,34 @@
+{{- if .Values.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tol-enrich-worker.fullname" . }}
+  labels:
+    {{- include "tol-enrich-worker.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - name: health
+      port: {{ .Values.service.port }}
+      targetPort: health
+      protocol: TCP
+  selector:
+    {{- include "tol-enrich-worker.selectorLabels" . | nindent 4 }}
+{{- end }}
+{{- if .Values.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "tol-enrich-worker.fullname" . }}
+  labels:
+    {{- include "tol-enrich-worker.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "tol-enrich-worker.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: health
+      path: /metrics
+      interval: 30s
+{{- end }}

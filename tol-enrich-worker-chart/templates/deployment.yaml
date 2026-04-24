@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tol-enrich-worker.fullname" . }}
+  labels:
+    {{- include "tol-enrich-worker.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    # Recreate au lieu de RollingUpdate :
+    # un seul worker à la fois → évite que 2 instances tirent les mêmes jobs
+    # pendant le rollout (FOR UPDATE SKIP LOCKED gère ça mais c'est plus propre).
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "tol-enrich-worker.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tol-enrich-worker.selectorLabels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: worker
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: health
+              containerPort: 9090
+              protocol: TCP
+          env:
+            # ── DB & secrets (from External Secrets) ──
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tol-enrich-worker.fullname" . }}-secrets
+                  key: DATABASE_URL
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tol-enrich-worker.fullname" . }}-secrets
+                  key: ANTHROPIC_API_KEY
+            # ── Connectivity ──
+            - name: QDRANT_HOST
+              value: {{ .Values.qdrant.host | quote }}
+            - name: QDRANT_PORT
+              value: {{ .Values.qdrant.port | quote }}
+            - name: QDRANT_COLLECTION
+              value: {{ .Values.qdrant.collection | quote }}
+            - name: AUTH_INTERNAL_URL
+              value: {{ .Values.auth.internalUrl | quote }}
+            # ── Worker tuning ──
+            - name: BATCH_SIZE
+              value: {{ .Values.worker.batchSize | quote }}
+            - name: POLL_SECONDS
+              value: {{ .Values.worker.pollSeconds | quote }}
+            - name: RATE_LIMIT_RPM
+              value: {{ .Values.worker.rateLimitRpm | quote }}
+            - name: MAX_ATTEMPTS
+              value: {{ .Values.worker.maxAttempts | quote }}
+            - name: STALE_MINUTES
+              value: {{ .Values.worker.staleMinutes | quote }}
+            - name: ALIAS_CACHE_SECONDS
+              value: {{ .Values.worker.aliasCacheSeconds | quote }}
+            # ── Claude config ──
+            - name: CLAUDE_MODEL
+              value: {{ .Values.worker.claudeModel | quote }}
+            - name: CLAUDE_MAX_TOKENS
+              value: {{ .Values.worker.claudeMaxTokens | quote }}
+            - name: CLAUDE_INPUT_USD_PER_1M
+              value: {{ .Values.worker.claudeInputUsdPer1m | quote }}
+            - name: CLAUDE_OUTPUT_USD_PER_1M
+              value: {{ .Values.worker.claudeOutputUsdPer1m | quote }}
+            - name: HEALTH_PORT
+              value: "9090"
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

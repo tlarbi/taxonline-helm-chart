@@ -1,0 +1,6 @@
+apiVersion: v2
+name: tol-enrich-worker
+description: Background LLM enrichment worker for TaxOnline corpus
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
