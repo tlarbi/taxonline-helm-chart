@@ -120,6 +120,10 @@ externalSecret:
       remoteRef:
         key: taxonline/staging/agent
         property: ANTHROPIC_API_KEY
+    - secretKey: RESEND_API_KEY
+      remoteRef:
+        key: taxonline/staging/agent
+        property: RESEND_API_KEY       
 
 # ── Network Policy ────────────────────────────────────────────────
 networkPolicy:
