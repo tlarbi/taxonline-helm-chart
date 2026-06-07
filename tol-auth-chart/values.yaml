@@ -64,6 +64,14 @@ externalSecret:
       remoteRef:
         key: taxonline/staging/auth
         property: RESEND_API_KEY
+    - secretKey: KEYCLOAK_ADMIN_CLIENT_ID
+      remoteRef:
+        key: taxonline/staging/auth
+        property: KEYCLOAK_ADMIN_CLIENT_ID
+    - secretKey: KEYCLOAK_ADMIN_CLIENT_SECRET
+      remoteRef:
+        key: taxonline/staging/auth
+        property: KEYCLOAK_ADMIN_CLIENT_SECRET
 
 # ── Ingress ──────────────────────────────────
 ingress:
