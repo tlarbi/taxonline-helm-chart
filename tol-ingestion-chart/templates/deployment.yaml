@@ -20,6 +20,8 @@ spec:
       labels:
         {{- include "tol-ingestion.selectorLabels" . | nindent 8 }}
     spec:
+      securityContext:
+        fsGroup: 10001
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -68,7 +70,7 @@ spec:
             items:
               - key: DOCUMENT_AI_CREDENTIALS_JSON
                 path: credentials.json
-            defaultMode: 0400
+            defaultMode: 0440
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
