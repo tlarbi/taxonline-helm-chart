@@ -20,6 +20,8 @@ spec:
       labels:
         {{- include "tol-ingestion.selectorLabels" . | nindent 8 }}
     spec:
+      # fsGroup = UID de appuser (Dockerfile) : kubelet chown les volumes
+      # au GID 10001 pour que le conteneur non-root puisse lire les secrets.
       securityContext:
         fsGroup: 10001
       {{- with .Values.imagePullSecrets }}
@@ -56,7 +58,7 @@ spec:
           # (defined in the gitops config block). Here we project the
           # DOCUMENT_AI_CREDENTIALS_JSON key from the same K8s Secret
           # that envFrom loads — no second Secret, single rotation
-          # surface, readOnly + 0400 perms.
+          # surface, readOnly + 0440 perms (group-readable via fsGroup).
           volumeMounts:
             - name: google-credentials
               mountPath: {{ .Values.documentAi.mountPath | default "/var/secrets/google" }}
