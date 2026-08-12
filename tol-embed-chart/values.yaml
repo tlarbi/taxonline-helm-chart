@@ -11,10 +11,10 @@ service:
 
 resources:
   requests:
-    memory: "512Mi"
+    memory: "1Gi"
     cpu: "100m"      # ← réduit de 500m à 100m
   limits:
-    memory: "2.5Gi"
+    memory: "6Gi"
     cpu: "1500m"     # ← réduit de 2000m à 1500m
 
 env:
