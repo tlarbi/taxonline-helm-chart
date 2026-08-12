@@ -1,173 +1,170 @@
+replicaCount: 2
+
 image:
-  repository: ghcr.io/tlarbi/tol-ingestion
-  tag: develop-867cd8d
-
-replicaCount: 1
-
-service:
-  type: ClusterIP
-  port: 8003
-
-serviceAccount:
-  name: tol-ingestion
-
-resources:
-  requests:
-    memory: "1Gi"
-    cpu: "250m"
-  limits:
-    memory: "3Gi"
-    # Bumped from 500m → 1500m. Le 500m étranglait l'orchestrator
-    # pendant l'indexation (palier 75% qui stagne). Transitionnel —
-    # sera redescendu à 500m une fois le worker séparé (livraison 2).
-    cpu: "1500m"
+  repository: ghcr.io/tlarbi/tol-agent
+  tag: "8.2.3"
+  pullPolicy: IfNotPresent
 
 imagePullSecrets:
   - name: ghcr-secret
 
-# ── External Secrets (HashiCorp Vault) ───────────────────────────
-# The target Secret name is derived from the tol-ingestion.secretName
-# helper in the chart — we no longer override it here. The previous
-# `targetName:` key was a no-op because the chart reads target.name
-# (not targetName), and the helper now wins regardless. Keeping this
-# values block aligned with the chart schema means the only thing
-# that matters per env is `enabled` and the `data` list.
+service:
+  type: ClusterIP
+  port: 8001
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 2Gi
+  limits:
+    cpu: "1"
+    memory: 2Gi
+
+# ── Application Config (non-secret) ──────────────────────────────
+env:
+  # Qdrant
+  QDRANT_HOST: "qdrant-staging.storage.svc.cluster.local"
+  QDRANT_PORT: "6333"
+  QDRANT_COLLECTION: "tol-corpus"
+  QDRANT_TOP_K: "20"
+  RERANKER_ENABLED: "false"
+  TOL_EMBED_URL: "http://tol-embed-staging.tol-staging.svc.cluster.local:8000"
+  # OpenSearch
+  OPENSEARCH_HOST: "opensearch-staging.storage.svc.cluster.local"
+  OPENSEARCH_PORT: "9200"
+  # "taxonline_v2" n'existe pas dans le cluster (vérifié via _cat/indices).
+  # Seul opensearch_tool.py lit cette valeur, et il n'est appelé que par
+  # HybridRetriever — hors du chemin de chat actuel. Aligné par cohérence.
+  OPENSEARCH_INDEX: "taxonline_search"
+  OPENSEARCH_USER: "admin"
+  # Ollama
+  OLLAMA_HOST: "ollama.ollama.svc.cluster.local"
+  OLLAMA_PORT: "11434"
+  EMBED_MODEL: "nomic-embed-text"
+  # LLM Tiering
+  LLM_PROVIDER: "groq"
+  LLM_ROUTING_MODEL: "llama-3.1-8b-instant"
+  LLM_GENERATION_MODEL: "llama-3.3-70b-versatile"
+  LLM_FALLBACK_MODEL: "mistral"
+  # Redis
+  REDIS_HOST: "redis.agent.svc.cluster.local"
+  REDIS_PORT: "6379"
+  # App
+  LOG_LEVEL: "info"
+  ENVIRONMENT: "production"
+  LITELLM_LOCAL_MODEL_COST_MAP: "True"
+  # BFF — URL interne pour proxy vers tol-ingestion
+  TOL_INGESTION_URL: "http://tol-ingestion.ingestion.svc.cluster.local:8003"
+  GRAPH_GRAPH_ENRICHMENT_ENABLED: "false"
+
+# ── External Secrets (ESO → Vault) ───────────────────────────────
 externalSecret:
   enabled: true
+  refreshInterval: 5m
   secretStoreName: vault-backend
   secretStoreKind: ClusterSecretStore
-  refreshInterval: 5m
+  targetName: tol-agent-secrets
   data:
     - secretKey: SECRET_KEY
       remoteRef:
-        key: taxonline/staging/ingestion
+        key: taxonline/staging/agent
         property: SECRET_KEY
+    - secretKey: DATABASE_URL
+      remoteRef:
+        key: taxonline/staging/agent
+        property: DATABASE_URL
+    - secretKey: OPENSEARCH_PASS
+      remoteRef:
+        key: taxonline/staging/agent
+        property: OPENSEARCH_PASS
+    - secretKey: GROQ_API_KEY
+      remoteRef:
+        key: taxonline/staging/agent
+        property: GROQ_API_KEY
+    # LLM_API_KEY = alias de GROQ_API_KEY (utilisé par le code Python)
+    - secretKey: LLM_API_KEY
+      remoteRef:
+        key: taxonline/staging/agent
+        property: GROQ_API_KEY
+    - secretKey: REDIS_URL
+      remoteRef:
+        key: taxonline/staging/agent
+        property: REDIS_URL
+    - secretKey: TAVILY_API_KEY
+      remoteRef:
+        key: taxonline/staging/agent
+        property: TAVILY_API_KEY
+    - secretKey: OPIK_API_KEY
+      remoteRef:
+        key: taxonline/staging/agent
+        property: OPIK_API_KEY
     - secretKey: S3_ACCESS_KEY
       remoteRef:
-        key: taxonline/staging/ingestion
+        key: taxonline/staging/agent
         property: S3_ACCESS_KEY
     - secretKey: S3_SECRET_KEY
       remoteRef:
-        key: taxonline/staging/ingestion
+        key: taxonline/staging/agent
         property: S3_SECRET_KEY
-    - secretKey: OPENSEARCH_PASS
-      remoteRef:
-        key: taxonline/staging/ingestion
-        property: OPENSEARCH_PASS
-    - secretKey: QDRANT_HOST
-      remoteRef:
-        key: taxonline/staging/ingestion
-        property: QDRANT_HOST
-    - secretKey: OPENSEARCH_HOST
-      remoteRef:
-        key: taxonline/staging/ingestion
-        property: OPENSEARCH_HOST
-    - secretKey: REDIS_URL
-      remoteRef:
-        key: taxonline/staging/ingestion
-        property: REDIS_URL
-    - secretKey: DATABASE_URL
-      remoteRef:
-        key: taxonline/staging/ingestion
-        property: DATABASE_URL
     - secretKey: S3_BUCKET
       remoteRef:
-        key: taxonline/staging/ingestion
+        key: taxonline/staging/agent
         property: S3_BUCKET
     - secretKey: S3_ENDPOINT
       remoteRef:
-        key: taxonline/staging/ingestion
+        key: taxonline/staging/agent
         property: S3_ENDPOINT
-
-    # ── Google Document AI credentials (Sprint 9 OCR) ─────────────
-    - secretKey: DOCUMENT_AI_CREDENTIALS_JSON
+    - secretKey: S3_REGION
       remoteRef:
-        key: taxonline/staging/document-ai
-        property: credentials_json
-    - secretKey: DOCUMENT_AI_PROJECT_ID
-      remoteRef:
-        key: taxonline/staging/document-ai
-        property: project_id
-    - secretKey: DOCUMENT_AI_PROJECT_NUMBER
-      remoteRef:
-        key: taxonline/staging/document-ai
-        property: project_number
-    - secretKey: DOCUMENT_AI_PROCESSOR_ID
-      remoteRef:
-        key: taxonline/staging/document-ai
-        property: processor_id
-    - secretKey: DOCUMENT_AI_LOCATION
-      remoteRef:
-        key: taxonline/staging/document-ai
-        property: location
-
-    # ── Anthropic Claude (enrichissement v4 via Haiku) ───────────
+        key: taxonline/staging/agent
+        property: S3_REGION
+    # Claude Sonnet — traduction juridique
     - secretKey: ANTHROPIC_API_KEY
       remoteRef:
         key: taxonline/staging/agent
         property: ANTHROPIC_API_KEY
+    - secretKey: RESEND_API_KEY
+      remoteRef:
+        key: taxonline/staging/agent
+        property: RESEND_API_KEY       
 
-secret:
+# ── Network Policy ────────────────────────────────────────────────
+networkPolicy:
   enabled: false
+  allowedNamespaces:
+    - vector       # Qdrant
+    - opensearch   # OpenSearch
+    - ollama       # Ollama + Redis
+    - database     # PostgreSQL
+    - auth         # tol-auth
+    - ingestion    # tol-ingestion (BFF proxy)
 
+# ── Proxy ─────────────────────────────────────────────────────────
+proxy:
+  http_proxy: "http://10.42.0.1:3128"
+  https_proxy: "http://10.42.0.1:3128"
+  no_proxy: "localhost,127.0.0.1,10.42.0.0/16,10.43.0.0/16,.svc,.svc.cluster.local"
+
+# ── Ingress api.taxonlineai.com ────────────────────────────────────
 ingress:
-  # BFF pattern — tol-agent proxifie, pas d'ingress direct
   enabled: false
-  className: nginx
-  annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
-    nginx.ingress.kubernetes.io/auth-url: "http://tol-auth-staging.tol-staging.svc.cluster.local:8002/auth/verify"
-    nginx.ingress.kubernetes.io/auth-response-headers: "X-User-ID,X-User-Role,X-User-Plan"
-    nginx.ingress.kubernetes.io/auth-snippet: |
-      proxy_set_header Authorization $http_authorization;
-  hosts:
-    - host: rag.taxonlineai.com
-      paths:
-        - path: /api/v2/ingestion
-          pathType: Prefix
-  tls:
-    - secretName: rag-tls
-      hosts:
-        - rag.taxonlineai.com
+  host: api.taxonlineai.com
+  tlsSecret: api-taxonlineai-tls
+  auth:
+    enabled: true
+    url: "http://tol-auth-staging.tol-staging.svc.cluster.local:8000/auth/verify"
+    responseHeaders: "X-User-ID,X-User-Role,X-User-Plan"
 
-pdb:
-  enabled: false
-
-config:
-  TOL_EMBED_URL: "http://tol-embed-staging.tol-staging.svc.cluster.local:8000"
-  OPENSEARCH_HOST: "opensearch-staging.storage.svc.cluster.local"
-  OPENSEARCH_SSL: "false"
-  QDRANT_HOST: "qdrant-staging.storage.svc.cluster.local"
-  # Index unique de la recherche juridique. Doit rester aligné sur :
-  #   - tol-agent/app/core/search_index.py (SEARCH_INDEX, création au boot)
-  #   - tol-agent /search/legal, /autocomplete, /keywords, /related (en dur)
-  #   - tol-ingestion/app/services/search_indexer.py (SEARCH_INDEX)
-  #   - tol-enrich-worker (OS_INDEX, patch d'enrichissement)
-  # L'ancienne valeur "tol-corpus" faisait écrire l'ingestion dans un index
-  # que personne ne lisait : un chunk n'apparaissait en recherche qu'après
-  # passage du worker d'enrichissement.
-  OPENSEARCH_INDEX: "taxonline_search"
-  QDRANT_COLLECTION: "tol-corpus"
-
-  # ── Embedding throughput tuning (Livraison 1) ─────────────────
-  # EMBED_BATCH_SIZE=64    : up from 10 (tol-embed accepte 256/req).
-  # EMBED_CONCURRENCY=4    : 4 batches en parallèle round-robined sur
-  #   les 3 replicas tol-embed. Initialement à 8 mais on a observé
-  #   des OOMKill sur tol-embed (peak RAM ~3.5-4 GB par pod sous
-  #   charge). 4 // 3 replicas = 1.33 batch en flight par pod en
-  #   moyenne, marge confortable sous le nouveau limits.memory=5Gi.
-  EMBED_BATCH_SIZE: "64"
-  EMBED_CONCURRENCY: "4"
-
-  # ── OCR (Sprint 9) ────────────────────────────────────────────
-  OCR_PROVIDER: "google_document_ai"
-  OCR_MIN_CONFIDENCE: "0.80"
-  GOOGLE_APPLICATION_CREDENTIALS: "/var/secrets/google/credentials.json"
-
-# ── Google Document AI mount (Sprint 9) ──────────────────────────
-documentAi:
+# ── Ingress rag.taxonlineai.com ────────────────────────────────────
+ingressRag:
   enabled: true
-  mountPath: /var/secrets/google
+  host: rag.taxonlineai.com
+  path: /api
+  tlsSecret: rag-tls
+  proxyBodySize: "50m"
+  proxyReadTimeout: "300"
+  proxySendTimeout: "300"
 
-backup:
-  triggerFromIngestion: true
+# ── Proxy overrides ────────────────────────────────────────────────
+proxyOverrides:
+  noProxy: "localhost,127.0.0.1,10.42.0.0/16,10.43.0.0/16,.svc,.svc.cluster.local,api.groq.com,huggingface.co,api.anthropic.com"
