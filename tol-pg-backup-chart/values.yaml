@@ -9,6 +9,12 @@ imagePullSecrets:
 schedule: "0 2 * * *"
 retentionDays: 7
 
+# Bases sauvegardees par le CronJob (liste separee par des virgules).
+# Avant 2026-08 seule tol_ingestion l'etait : tol_auth (utilisateurs,
+# licences, facturation) et tol_agent (sessions de chat, checkpoints
+# LangGraph, feedbacks) n'avaient aucune sauvegarde.
+databases: "tol_agent,tol_auth,tol_ingestion"
+
 s3:
   bucket: taxonline-datalake
   prefix: backups/postgres
