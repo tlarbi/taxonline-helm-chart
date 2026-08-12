@@ -57,6 +57,21 @@ env:
   TOL_INGESTION_URL: "http://tol-ingestion.ingestion.svc.cluster.local:8003"
   GRAPH_GRAPH_ENRICHMENT_ENABLED: "false"
 
+  # ── Validation JWT ─────────────────────────────────────────────
+  # off    : aucune verification de signature
+  # warn   : tente de verifier ; en cas d'echec accepte quand meme et
+  #          logge `jwt_verify_failed` (comportement historique, aucun
+  #          risque de coupure)
+  # strict : rejette en 401 tout token non verifiable
+  #
+  # NE PASSER EN strict QUE lorsque, sur une fenetre de 48 h ayant
+  # couvert une session admin sur le BFF, un run d'evals, une
+  # reconnexion Keycloak et un WebSocket de la page Pipeline :
+  #   kubectl logs ... --since=48h | grep jwt_verify_failed
+  # ne renvoie rien.
+  JWT_VERIFY_MODE: "warn"
+  KEYCLOAK_JWKS_URL: "https://auth.taxonlineai.com/auth/realms/taxonline/protocol/openid-connect/certs"
+
 # ── External Secrets (ESO → Vault) ───────────────────────────────
 externalSecret:
   enabled: true
