@@ -1,0 +1,8 @@
+
+# ── Secrets & certificats (JAMAIS committer) ──
+*.key
+*.pem
+*.crt
+*.csr
+*.srl
+certs/
