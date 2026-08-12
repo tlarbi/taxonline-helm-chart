@@ -71,10 +71,29 @@ config:
   OPENSEARCH_PORT: "9200"
   OPENSEARCH_USER: "admin"
   OPENSEARCH_SSL: "true"
-  OPENSEARCH_INDEX: "taxonline"
+  # Index unique de la recherche juridique. La valeur par defaut du
+  # chart etait "taxonline", un index qui n'existe pas dans le cluster.
+  # Seules les values gitops la corrigeaient : le chart seul aurait
+  # ecrit dans le vide.
+  OPENSEARCH_INDEX: "taxonline_search"
   OPENSEARCH_ENABLED: "true"
   EMBED_MODEL: "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
   EMBED_DIM: "768"
+
+  # ── Validation JWT ─────────────────────────────────────────────
+  # off    : aucune verification de signature
+  # warn   : tente de verifier ; en cas d'echec accepte quand meme et
+  #          logge `jwt_verify_failed` (comportement historique, aucun
+  #          risque de coupure)
+  # strict : rejette en 401 tout token non verifiable
+  #
+  # NE PASSER EN strict QUE lorsque, sur une fenetre de 48 h ayant
+  # couvert une session admin sur le BFF, un run d'evals, une
+  # reconnexion Keycloak et un WebSocket de la page Pipeline :
+  #   kubectl logs ... --since=48h | grep jwt_verify_failed
+  # ne renvoie rien.
+  JWT_VERIFY_MODE: "warn"
+  KEYCLOAK_JWKS_URL: "https://auth.taxonlineai.com/auth/realms/taxonline/protocol/openid-connect/certs"
 
 # ── Google Document AI mount (Sprint 9 OCR) ──────────────────────
 # Default = false (chart is safe in envs without OCR active).
