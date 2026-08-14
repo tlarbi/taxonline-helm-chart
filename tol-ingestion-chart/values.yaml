@@ -92,7 +92,7 @@ config:
   # reconnexion Keycloak et un WebSocket de la page Pipeline :
   #   kubectl logs ... --since=48h | grep jwt_verify_failed
   # ne renvoie rien.
-  JWT_VERIFY_MODE: "warn"
+  JWT_VERIFY_MODE: "strict"
   KEYCLOAK_JWKS_URL: "https://auth.taxonlineai.com/auth/realms/taxonline/protocol/openid-connect/certs"
 
 # ── Google Document AI mount (Sprint 9 OCR) ──────────────────────
