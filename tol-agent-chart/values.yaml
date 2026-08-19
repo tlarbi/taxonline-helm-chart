@@ -43,8 +43,8 @@ env:
   EMBED_MODEL: "nomic-embed-text"
   # LLM Tiering
   LLM_PROVIDER: "groq"
-  LLM_ROUTING_MODEL: "llama-3.1-8b-instant"
-  LLM_GENERATION_MODEL: "llama-3.3-70b-versatile"
+  LLM_ROUTING_MODEL: "openai/gpt-oss-20b"
+  LLM_GENERATION_MODEL: "openai/gpt-oss-120b"
   LLM_FALLBACK_MODEL: "mistral"
   # Redis
   REDIS_HOST: "redis.agent.svc.cluster.local"
