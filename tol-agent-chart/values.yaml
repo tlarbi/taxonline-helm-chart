@@ -41,10 +41,27 @@ env:
   OLLAMA_HOST: "ollama.ollama.svc.cluster.local"
   OLLAMA_PORT: "11434"
   EMBED_MODEL: "nomic-embed-text"
-  # LLM Tiering
+  # ── LLM Tiering ────────────────────────────────────────────────
+  #
+  # LLM_GENERATION_MODEL n'etait lu PAR PERSONNE avant le correctif du
+  # 30/08. Le code lisait LLM_MODEL, et `extra="ignore"` cote pydantic
+  # avalait cette cle en silence : modifier le modele ici n'avait aucun
+  # effet sur la generation. Seule la coincidence des deux valeurs
+  # masquait le probleme depuis le 19/08.
+  #
+  # Aggravant : health_probe.py sondait LLM_GENERATION_MODEL. La sonde
+  # testait donc un modele que le moteur n'utilisait pas — une sonde
+  # verte ne garantissait rien.
+  #
+  # Depuis config.py, un validateur aligne les deux noms et fait gagner
+  # LLM_GENERATION_MODEL. Cette cle pilote reellement la generation.
   LLM_PROVIDER: "groq"
   LLM_ROUTING_MODEL: "openai/gpt-oss-20b"
   LLM_GENERATION_MODEL: "openai/gpt-oss-120b"
+  # Modele d'analyse de fichier (4e etage). Surtout PAS de famille
+  # qwen3 : elle emet un bloc <think> que le prompt systeme interdit,
+  # et il ressortait dans la reponse rendue au client.
+  LLM_FILE_MODEL: "openai/gpt-oss-120b"
   LLM_FALLBACK_MODEL: "mistral"
   # Redis
   REDIS_HOST: "redis.agent.svc.cluster.local"
@@ -71,6 +88,24 @@ env:
   # ne renvoie rien.
   JWT_VERIFY_MODE: "strict"
   KEYCLOAK_JWKS_URL: "https://auth.taxonlineai.com/auth/realms/taxonline/protocol/openid-connect/certs"
+
+  # ── CORS ───────────────────────────────────────────────────────
+  # Le code lit CORS_ALLOWED_ORIGINS depuis le 19/08 ; la variable
+  # n'etait definie NULLE PART, ni ici ni dans le gitops. L'API
+  # repondait donc Access-Control-Allow-Origin: * a tout le monde :
+  # n'importe quelle page web pouvait appeler l'API avec le jeton de
+  # l'utilisateur qui la visite.
+  #
+  # Liste explicite = allow_credentials reactive automatiquement cote
+  # code (avec "*" le navigateur refuse de toute facon les credentials).
+  #
+  # AVANT DE DEPLOYER : verifier qu'aucune autre origine n'appelle
+  # l'API. Si le site Drupal (legal-taxonline.com) fait des appels
+  # navigateur vers rag.taxonlineai.com, il DOIT figurer ici, sinon
+  # ses requetes tomberont en erreur CORS. Pour revenir en arriere :
+  # remettre "*" — le comportement d'origine est restaure au prochain
+  # rollout, sans rebuild.
+  CORS_ALLOWED_ORIGINS: "https://chat.taxonlineai.com,https://rag.taxonlineai.com,https://legal-taxonline.com,https://www.legal-taxonline.com"
 
 # ── External Secrets (ESO → Vault) ───────────────────────────────
 externalSecret:
