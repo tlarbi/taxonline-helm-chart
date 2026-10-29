@@ -1,0 +1,48 @@
+{{- if .Values.logsReader.enabled }}
+# ──────────────────────────────────────────────────────────────────
+# Lecture des journaux depuis la page Système › Journaux.
+#
+# tol-agent appelle l'API Kubernetes avec le jeton de SON
+# ServiceAccount : GET pods (liste des services) et GET pods/log.
+# Lecture seule, aucun exec, aucun secret. Un Role par namespace
+# surveillé (pas de ClusterRole) : le périmètre reste explicite.
+# ──────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "tol-agent.serviceAccountName" . }}
+  labels:
+    {{- include "tol-agent.labels" . | nindent 4 }}
+{{- $sa := include "tol-agent.serviceAccountName" . }}
+{{- $root := . }}
+{{- range $ns := (default (list $.Release.Namespace) $.Values.logsReader.namespaces) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "tol-agent.fullname" $root }}-logs-reader
+  namespace: {{ $ns }}
+  labels:
+    {{- include "tol-agent.labels" $root | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "tol-agent.fullname" $root }}-logs-reader
+  namespace: {{ $ns }}
+  labels:
+    {{- include "tol-agent.labels" $root | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $sa }}
+    namespace: {{ $.Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "tol-agent.fullname" $root }}-logs-reader
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+{{- end }}

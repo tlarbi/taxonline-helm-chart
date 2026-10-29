@@ -1,0 +1,150 @@
+{{- if .Values.restoreTest.enabled }}
+# ==================================================================
+# Test de restauration, déclenchable depuis Système › Sauvegardes.
+#
+# CronJob SUSPENDU : il ne tourne jamais tout seul (sauf si
+# restoreTest.suspend: false). tol-ingestion l'instancie en Job à la
+# demande, comme « Sauvegarder maintenant » le fait pour
+# postgres-backup (RBAC backup-trigger existant).
+#
+# Il restaure le dernier dump de chaque base dans une base JETABLE
+# <db>_restore_test, compare des comptages avec la production, puis
+# supprime la base jetable. Il ne touche JAMAIS aux bases de prod.
+# Script identique à tol-pg-backup/restore-test-job.yaml.
+# ==================================================================
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-restore-test
+  labels:
+    app: pg-restore-test
+spec:
+  schedule: {{ .Values.restoreTest.schedule | quote }}
+  suspend: {{ .Values.restoreTest.suspend }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata:
+          labels:
+            app: pg-restore-test
+        spec:
+          restartPolicy: Never
+          imagePullSecrets:
+            {{- toYaml .Values.imagePullSecrets | nindent 12 }}
+          containers:
+            - name: restore-test
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              envFrom:
+                - secretRef:
+                    name: postgres-backup-secrets
+              env:
+                - name: S3_BUCKET
+                  value: {{ .Values.s3.bucket | quote }}
+                - name: S3_PREFIX
+                  value: {{ .Values.s3.prefix | quote }}
+                - name: S3_ENDPOINT
+                  value: {{ .Values.s3.endpoint | quote }}
+                - name: S3_REGION
+                  value: {{ .Values.s3.region | quote }}
+                - name: DBS
+                  value: {{ .Values.databases | replace "," " " | quote }}
+              command: ["/bin/bash", "-c"]
+              args:
+                - |
+                    set -uo pipefail
+
+                    export AWS_ACCESS_KEY_ID="${S3_ACCESS_KEY}"
+                    export AWS_SECRET_ACCESS_KEY="${S3_SECRET_KEY}"
+                    export AWS_DEFAULT_REGION="${S3_REGION}"
+                    export PGPASSWORD="${POSTGRES_PASSWORD}"
+
+                    PSQL="psql -h ${POSTGRES_HOST} -U ${POSTGRES_USER} -v ON_ERROR_STOP=0"
+                    FAILED=""
+
+                    for DB in ${DBS}; do
+                        TEST_DB="${DB}_restore_test"
+                        echo ""
+                        echo "=== ${DB} ==========================================="
+
+                        LAST=$(aws s3 ls "s3://${S3_BUCKET}/${S3_PREFIX}/" \
+                                 --endpoint-url "${S3_ENDPOINT}" \
+                               | awk '{print $4}' | grep -E "^${DB}-[0-9]{4}" \
+                               | sort | tail -1)
+                        if [ -z "${LAST}" ]; then
+                            echo "  AUCUN dump trouve pour ${DB}"
+                            FAILED="${FAILED} ${DB}(no-dump)"
+                            continue
+                        fi
+                        echo "  dump    : ${LAST}"
+
+                        aws s3 cp "s3://${S3_BUCKET}/${S3_PREFIX}/${LAST}" "/tmp/${LAST}" \
+                            --endpoint-url "${S3_ENDPOINT}" --quiet
+                        echo "  taille  : $(stat -c %s "/tmp/${LAST}") octets"
+
+                        # Base jetable, recreee a neuf a chaque passage.
+                        ${PSQL} -d postgres -q -c "DROP DATABASE IF EXISTS ${TEST_DB};" >/dev/null 2>&1
+                        ${PSQL} -d postgres -q -c "CREATE DATABASE ${TEST_DB};" >/dev/null 2>&1
+
+                        # Les erreurs du restore sont comptees, pas fatales :
+                        # un dump --clean genere des NOTICE et des DROP sur des
+                        # objets absents, normaux sur une base neuve.
+                        ERRS=$(gunzip -c "/tmp/${LAST}" \
+                               | ${PSQL} -d "${TEST_DB}" 2>&1 >/dev/null \
+                               | grep -c "^ERROR" || true)
+                        echo "  erreurs : ${ERRS}"
+
+                        TABLES=$(${PSQL} -d "${TEST_DB}" -tAc \
+                          "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';")
+                        echo "  tables  : ${TABLES}"
+
+                        # Comparaison avec la base de production, sur les tables
+                        # metier qui comptent. C'est la verification qui prouve
+                        # que le dump contient bien les DONNEES, pas juste le
+                        # schema.
+                        case "${DB}" in
+                          tol_auth)
+                            for T in users licenses; do
+                              SRC=$(${PSQL} -d "${DB}"      -tAc "SELECT COUNT(*) FROM ${T};" 2>/dev/null || echo "?")
+                              DST=$(${PSQL} -d "${TEST_DB}" -tAc "SELECT COUNT(*) FROM ${T};" 2>/dev/null || echo "?")
+                              echo "  ${T} : prod=${SRC} restaure=${DST}"
+                              [ "${SRC}" = "${DST}" ] || FAILED="${FAILED} ${DB}.${T}"
+                            done
+                            ;;
+                          tol_agent)
+                            for T in chat_sessions user_profiles; do
+                              SRC=$(${PSQL} -d "${DB}"      -tAc "SELECT COUNT(*) FROM ${T};" 2>/dev/null || echo "?")
+                              DST=$(${PSQL} -d "${TEST_DB}" -tAc "SELECT COUNT(*) FROM ${T};" 2>/dev/null || echo "?")
+                              echo "  ${T} : prod=${SRC} restaure=${DST}"
+                              [ "${SRC}" = "${DST}" ] || FAILED="${FAILED} ${DB}.${T}"
+                            done
+                            ;;
+                          tol_ingestion)
+                            for T in legal_texts articles; do
+                              SRC=$(${PSQL} -d "${DB}"      -tAc "SELECT COUNT(*) FROM ${T};" 2>/dev/null || echo "?")
+                              DST=$(${PSQL} -d "${TEST_DB}" -tAc "SELECT COUNT(*) FROM ${T};" 2>/dev/null || echo "?")
+                              echo "  ${T} : prod=${SRC} restaure=${DST}"
+                              [ "${SRC}" = "${DST}" ] || FAILED="${FAILED} ${DB}.${T}"
+                            done
+                            ;;
+                        esac
+
+                        # Nettoyage systematique de la base jetable.
+                        ${PSQL} -d postgres -q -c "DROP DATABASE IF EXISTS ${TEST_DB};" >/dev/null 2>&1
+                        rm -f "/tmp/${LAST}"
+                    done
+
+                    echo ""
+                    if [ -n "${FAILED}" ]; then
+                        echo "TEST DE RESTAURATION EN ECHEC :${FAILED}"
+                        exit 1
+                    fi
+                    echo "TEST DE RESTAURATION REUSSI - les 3 dumps sont exploitables"
+              resources:
+                {{- toYaml .Values.restoreTest.resources | nindent 16 }}
+{{- end }}

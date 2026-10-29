@@ -27,3 +27,12 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/name: {{ include "tol-agent.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
+
+{{/*
+ServiceAccount dédié, créé seulement quand logsReader est actif.
+Sinon le pod garde le ServiceAccount « default » du namespace
+(comportement historique inchangé).
+*/}}
+{{- define "tol-agent.serviceAccountName" -}}
+{{- default (include "tol-agent.fullname" .) .Values.logsReader.serviceAccountName }}
+{{- end }}

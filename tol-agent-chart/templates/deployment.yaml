@@ -20,6 +20,9 @@ spec:
       labels:
         {{- include "tol-agent.selectorLabels" . | nindent 8 }}
     spec:
+      {{- if .Values.logsReader.enabled }}
+      serviceAccountName: {{ include "tol-agent.serviceAccountName" . }}
+      {{- end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -36,6 +39,11 @@ spec:
             {{- range $key, $val := .Values.env }}
             - name: {{ $key }}
               value: {{ $val | quote }}
+            {{- end }}
+            {{- if .Values.logsReader.enabled }}
+            # Namespaces lus par la page Système › Journaux
+            - name: LOGS_NAMESPACES
+              value: {{ join "," (default (list .Release.Namespace) .Values.logsReader.namespaces) | quote }}
             {{- end }}
             - name: no_proxy
               value: "localhost,127.0.0.1,10.42.0.0/16,10.43.0.0/16,.svc,.svc.cluster.local,api.groq.com,huggingface.co"

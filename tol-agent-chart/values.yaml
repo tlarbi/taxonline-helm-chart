@@ -107,6 +107,16 @@ env:
   # rollout, sans rebuild.
   CORS_ALLOWED_ORIGINS: "https://chat.taxonlineai.com,https://rag.taxonlineai.com,https://legal-taxonline.com,https://www.legal-taxonline.com"
 
+# ── Journaux système (page Système › Journaux) ────────────────────
+# Lecture des logs des pods via l'API Kubernetes (pas de Loki).
+# enabled: true crée un ServiceAccount dédié + un Role lecture seule
+# (pods, pods/log) dans chaque namespace listé, et l'attache au pod.
+# namespaces vide = namespace de la release uniquement.
+logsReader:
+  enabled: false
+  serviceAccountName: ""
+  namespaces: []
+
 # ── External Secrets (ESO → Vault) ───────────────────────────────
 externalSecret:
   enabled: true

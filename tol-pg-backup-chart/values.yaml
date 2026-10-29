@@ -21,6 +21,20 @@ s3:
   endpoint: https://s3.gra.io.cloud.ovh.net
   region: gra
 
+# Test de restauration déclenchable depuis Système › Sauvegardes
+# (bases jetables <db>_restore_test, production jamais touchée).
+restoreTest:
+  enabled: false
+  suspend: true            # ne tourne qu'à la demande
+  schedule: "0 4 * * 0"    # utilisé seulement si suspend: false
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+
 vault:
   path:     taxonline/staging/backup
   storeRef: vault-backend
