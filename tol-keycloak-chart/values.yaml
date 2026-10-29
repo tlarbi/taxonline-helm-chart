@@ -1,0 +1,76 @@
+# ═══════════════════════════════════════════════════════════════════
+# tol-keycloak — valeurs par défaut. Les valeurs effectives sont dans
+# taxonline-gitops/charts/<env>/tol-keycloak-values.yaml.
+# ═══════════════════════════════════════════════════════════════════
+
+image:
+  repository: ghcr.io/tlarbi/tol-keycloak
+  tag: develop-latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: ghcr-secret
+
+service:
+  port: 8080
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+# Configuration Keycloak (non secrète). Doc : https://www.keycloak.org/server/all-config
+env:
+  KC_DB: postgres
+  KC_DB_URL: jdbc:postgresql://keycloak-postgres:5432/keycloak
+  KC_DB_USERNAME: keycloak
+  KC_HTTP_ENABLED: "true"
+  KC_HTTP_PORT: "8080"
+  # Les URL existantes sont en /auth/realms/… (clients, BFF, chat) : on garde /auth.
+  KC_HTTP_RELATIVE_PATH: /auth
+  KC_HTTP_MANAGEMENT_RELATIVE_PATH: /
+  KC_HOSTNAME_STRICT: "false"
+  KC_PROXY_HEADERS: xforwarded
+  KC_HEALTH_ENABLED: "true"
+  KC_METRICS_ENABLED: "true"
+  KC_CACHE: local
+  KC_BOOTSTRAP_ADMIN_USERNAME: admin
+  JAVA_OPTS_KC_HEAP: "-XX:MaxRAMPercentage=70"
+
+# Secrets lus dans Vault (KV v2) : KC_DB_PASSWORD, KC_BOOTSTRAP_ADMIN_PASSWORD.
+# KC_BOOTSTRAP_ADMIN_PASSWORD ne sert que sur une base vide.
+externalSecret:
+  enabled: true
+  refreshInterval: 5m
+  secretStoreName: vault-backend
+  secretStoreKind: ClusterSecretStore
+  targetName: tol-keycloak-secrets
+  data:
+    - secretKey: KC_DB_PASSWORD
+      remoteRef:
+        key: taxonline/staging/keycloak
+        property: KC_DB_PASSWORD
+    - secretKey: KC_BOOTSTRAP_ADMIN_PASSWORD
+      remoteRef:
+        key: taxonline/staging/keycloak
+        property: KC_BOOTSTRAP_ADMIN_PASSWORD
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Les jetons et cookies Keycloak dépassent les tampons NGINX par défaut.
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+  hosts:
+    - host: auth.taxonlineai.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: keycloak-tls
+      hosts:
+        - auth.taxonlineai.com
