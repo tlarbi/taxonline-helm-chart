@@ -15,6 +15,14 @@ retentionDays: 3
 # LangGraph, feedbacks) n'avaient aucune sauvegarde.
 databases: "tol_agent,tol_auth,tol_ingestion"
 
+# Bouton « Sauvegarder maintenant » (console admin). Droits RBAC donnes au
+# ServiceAccount de tol-ingestion pour lire le CronJob et creer un Job
+# one-off. Desactiver (enabled: false) si le declenchement manuel n'est
+# pas utilise.
+manualTrigger:
+  enabled: true
+  serviceAccountName: default
+
 s3:
   bucket: taxonline-datalake
   prefix: backups/postgres

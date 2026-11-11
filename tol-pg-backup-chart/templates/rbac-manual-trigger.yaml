@@ -1,0 +1,40 @@
+{{- if .Values.manualTrigger.enabled }}
+# RBAC pour le bouton « Sauvegarder maintenant » (console admin › Système ›
+# Sauvegardes). tol-ingestion (app/api/backups.py) lit le CronJob
+# postgres-backup puis crée un Job one-off a partir de son jobTemplate.
+# Son ServiceAccount a donc besoin, dans ce namespace, de :
+#   - get sur les cronjobs  (read_namespaced_cron_job)
+#   - create sur les jobs   (create_namespaced_job)
+# Sans ça : 403 Forbidden au clic (le run planifie de 02:00 n'est PAS
+# concerne, il s'execute avec les droits du CronJob lui-meme).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: backup-manual-trigger
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: postgres-backup
+rules:
+  - apiGroups: ["batch"]
+    resources: ["cronjobs"]
+    verbs: ["get"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backup-manual-trigger
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: postgres-backup
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.manualTrigger.serviceAccountName | quote }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: backup-manual-trigger
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
