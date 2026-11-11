@@ -7,7 +7,7 @@ imagePullSecrets:
   - name: ghcr-secret
 
 schedule: "0 2 * * *"
-retentionDays: 7
+retentionDays: 3
 
 # Bases sauvegardees par le CronJob (liste separee par des virgules).
 # Avant 2026-08 seule tol_ingestion l'etait : tol_auth (utilisateurs,
